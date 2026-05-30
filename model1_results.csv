@@ -1,0 +1,5 @@
+target,train_MSE,val_MSE,test_MSE,train_R2,val_R2,test_R2
+emotion_vitality,0.925121,0.873434,0.911051,0.1864,0.1927,0.1816
+emotion_stability,0.745437,0.687922,0.717102,0.1083,0.1038,0.1155
+emotion_resonance,0.537287,0.540872,0.512198,0.2249,0.2146,0.2182
+emotion_alert,0.493844,0.506069,0.464778,0.2137,0.2051,0.2232
