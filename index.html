@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>校園 SBTI 心理測驗</title>
+  <style>
+    /* ========== 朋友的神級 CSS 樣式 (完全保留) ========== */
+    :root {
+      --ink: #171717; --muted: #646464; --paper: #fffdf8;
+      --line: rgba(23, 23, 23, 0.14); --panel: rgba(255, 253, 248, 0.94);
+      --shadow: 0 18px 60px rgba(15, 15, 15, 0.18); --radius: 8px;
+      --red: #d9363e; --orange: #f07a24; --yellow: #f2c94c;
+      --green: #2f8f5b; --turquoise: #13a6a1; --blue: #3867d6;
+      --purple: #7d4cc2; --pink: #e85d9e; --brown: #806044;
+      --grey: #8c8f94; --black: #121212; --white: #f7f2e8;
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", Arial, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(135deg, rgba(242, 201, 76, 0.22), rgba(19, 166, 161, 0.18) 36%, rgba(232, 93, 158, 0.18) 70%, rgba(255, 253, 248, 0.88)), #fff7e8;
+      letter-spacing: 0;
+    }
+    button, input { font: inherit; }
+    .hero {
+      min-height: 100vh; display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(380px, 1.05fr);
+      background-image: linear-gradient(90deg, rgba(20, 20, 20, 0.18), rgba(255, 253, 248, 0.18) 52%, rgba(255, 253, 248, 0.86) 82%);
+      background-size: cover; background-position: center;
+    }
+    .brand { align-self: end; padding: 32px; color: #fffdf8; text-shadow: 0 3px 24px rgba(0, 0, 0, 0.42); }
+    .brand h1 { margin: 0 0 10px; max-width: 580px; font-size: 44px; line-height: 1.08; }
+    .brand p { margin: 0; max-width: 560px; font-size: 17px; line-height: 1.75; }
+    .quiz-panel { align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 28px; backdrop-filter: blur(2px); }
+    .app { width: min(100%, 780px); max-height: calc(100vh - 56px); overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); }
+    .topbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; border-bottom: 1px solid var(--line); background: rgba(255, 253, 248, 0.96); backdrop-filter: blur(12px); }
+    .mark { display: flex; align-items: center; gap: 10px; font-weight: 900; }
+    .mini-palette { display: grid; grid-template-columns: repeat(4, 9px); gap: 3px; }
+    .mini-palette span, .swatch { display: inline-block; border: 1px solid rgba(0, 0, 0, 0.18); }
+    .mini-palette span { width: 9px; height: 9px; }
+    .progress { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; }
+    .track { width: 132px; height: 8px; overflow: hidden; border-radius: 99px; background: rgba(23, 23, 23, 0.12); }
+    .track span { display: block; height: 100%; width: 20%; background: linear-gradient(90deg, var(--red), var(--yellow), var(--turquoise), var(--purple)); transition: width 0.3s ease; }
+    main { padding: 20px; }
+    .question-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; color: var(--muted); font-size: 14px; font-weight: 800; }
+    .pill { border: 1px solid var(--line); border-radius: 99px; padding: 4px 10px; background: rgba(255, 255, 255, 0.58); }
+    .question h2 { margin: 0 0 14px; font-size: 24px; line-height: 1.42; }
+    .question-text { margin: 0 0 18px; color: #333; font-size: 16px; line-height: 1.78; white-space: pre-line; }
+    .options { display: grid; gap: 10px; }
+    .option { width: 100%; min-height: 72px; display: grid; grid-template-columns: 42px 1fr; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); background: rgba(255, 255, 255, 0.66); cursor: pointer; text-align: left; transition: all 150ms ease; }
+    .option:hover { transform: translateY(-1px); background: #fff; border-color: rgba(23, 23, 23, 0.32); box-shadow: 0 10px 28px rgba(23, 23, 23, 0.08); }
+    .option[aria-pressed="true"] { border-color: #171717; background: #fff; box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.08); }
+    .option-number { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #171717; font-weight: 900; }
+    .option strong { display: block; margin-bottom: 4px; font-size: 16px; line-height: 1.35; }
+    .option small { display: block; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .color-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .color-grid .option { grid-template-columns: 30px 1fr; min-height: 58px; }
+    .swatch { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.28); }
+    .palette-stack { width: 38px; height: 38px; display: grid; grid-template-columns: repeat(2, 1fr); overflow: hidden; border: 1px solid rgba(0, 0, 0, 0.18); border-radius: 50%; background: #fff; }
+    .palette-stack span { min-width: 0; min-height: 0; display: inline-block;}
+    .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .ghost, .primary { min-height: 44px; border-radius: var(--radius); padding: 10px 16px; border: 1px solid var(--line); cursor: pointer; font-weight: 900; }
+    .ghost { color: var(--ink); background: rgba(255, 255, 255, 0.62); }
+    .primary { color: #fff; border-color: #171717; background: #171717; transition: 0.2s; }
+    .primary:hover { background: #333; }
+    .primary:disabled { cursor: not-allowed; opacity: 0.42; }
+    .result, .question { display: none; }
+    .result.active, .question.active { display: block; }
+    .result-hero { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(135deg, rgba(217, 54, 62, 0.12), rgba(47, 143, 91, 0.12) 35%, rgba(19, 166, 161, 0.12) 68%, rgba(232, 93, 158, 0.12)), rgba(255, 255, 255, 0.62); }
+    .result-title { margin: 0; font-size: 34px; line-height: 1.12; }
+    .type-flags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .flag { border-radius: 99px; padding: 6px 10px; color: #fff; background: #171717; font-size: 13px; font-weight: 900; }
+    .description { margin: 0; color: #2f2f2f; font-size: 16px; line-height: 1.8; white-space: pre-line; }
+    .motto { margin: 0; padding: 14px; border-left: 4px solid var(--turquoise); color: #363636; background: rgba(255, 255, 255, 0.7); line-height: 1.7; white-space: pre-line; font-style: italic; }
+    .metrics { display: grid; gap: 12px; margin-top: 16px; }
+    .metric { display: grid; grid-template-columns: 130px 1fr 58px; gap: 10px; align-items: center; }
+    .bar { height: 12px; overflow: hidden; border-radius: 99px; background: rgba(23, 23, 23, 0.12); }
+    .bar span { display: block; height: 100%; width: 50%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--turquoise), var(--purple)); transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    @media (max-width: 980px) { .hero { grid-template-columns: 1fr; background-position: 34% center; } .brand { padding: 28px 20px; } }
+    @media (max-width: 620px) { .topbar { flex-direction: column; align-items: flex-start;} .color-grid { grid-template-columns: repeat(2, 1fr); } .actions { flex-direction: column-reverse; } .ghost, .primary { width: 100%; } .metric { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <div class="brand">
+      <h1>校園 SBTI 心理測驗</h1>
+      <p>結合色彩心理學與機器學習演算法，用五個真實的校園瞬間，測出你的大數據人格與靈魂底色。</p>
+    </div>
+
+    <div class="quiz-panel">
+      <div class="app">
+        <div class="topbar">
+          <div class="mark">
+            <div class="mini-palette">
+              <span style="background: var(--black)"></span><span style="background: var(--blue)"></span>
+              <span style="background: var(--brown)"></span><span style="background: var(--green)"></span>
+              <span style="background: var(--grey)"></span><span style="background: var(--orange)"></span>
+              <span style="background: var(--pink)"></span><span style="background: var(--purple)"></span>
+              <span style="background: var(--red)"></span><span style="background: var(--turquoise)"></span>
+              <span style="background: var(--white)"></span><span style="background: var(--yellow)"></span>
+            </div>
+            <span>V/S/R/A 數據解耦引擎</span>
+          </div>
+          <div class="progress">
+            <span id="progressText">第 1 / 5 題</span>
+            <div class="track"><span id="progressBar"></span></div>
+          </div>
+        </div>
+
+        <main>
+          <section id="questionView" class="question active"></section>
+          <section id="resultView" class="result"></section>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // ==========================================
+    // 1. 核心大數據矩陣 (Model 1 權重)
+    // ==========================================
+    const MODEL1_COLOR_MATRIX = {
+        black: [1.2, 4.8, 1.5, 4.2], blue: [1.5, 4.5, 4.0, 1.1],
+        brown: [1.4, 3.9, 4.0, 2.4], green: [2.2, 4.2, 4.5, 0.9],
+        grey: [1.1, 4.0, 1.2, 3.0], orange: [4.3, 1.6, 3.1, 2.8],
+        pink: [3.5, 2.1, 4.5, 1.5], purple: [2.8, 2.5, 3.9, 3.1],
+        red: [4.8, 1.2, 3.0, 4.5], turquoise: [2.5, 3.5, 3.6, 1.3],
+        white: [2.0, 4.1, 2.9, 0.8], yellow: [4.5, 1.9, 3.2, 2.5]
+    };
+
+    const COLORS = [
+      ["black", "黑色", "Black", "#121212"], ["blue", "藍色", "Blue", "#3867d6"],
+      ["brown", "棕色", "Brown", "#806044"], ["grey", "灰色", "Grey", "#8c8f94"],
+      ["white", "白色", "White", "#f7f2e8"], ["turquoise", "青色", "Turquoise", "#13a6a1"],
+      ["red", "紅色", "Red", "#d9363e"], ["orange", "橘色", "Orange", "#f07a24"],
+      ["yellow", "黃色", "Yellow", "#f2c94c"], ["green", "綠色", "Green", "#2f8f5b"],
+      ["pink", "粉色", "Pink", "#e85d9e"], ["purple", "紫色", "Purple", "#7d4cc2"]
+    ];
+
+    const DIMENSION_LABELS = { V: "Vitality 活力", S: "Stability 穩定", R: "Resonance 共鳴", A: "Alert 警覺" };
+    const DIMENSION_SOURCE_LABELS = { V: "Q1 遲到危機", S: "Q4 療癒空間", R: "Q5 牽繩配色", A: "Q2+Q3 大腦底色" };
+
+    // ==========================================
+    // 2. 心理測驗題目區 (完整對接計分設定)
+    // ==========================================
+    const QUESTIONS = [
+      {
+        title: "早 9 實驗課的遲到死線",
+        text: "早 9 的實驗課，遲到 15 分鐘學期總平均直接扣 20 分。你在早上 8:30 壓掉了鬧鐘，以為自己游刃有餘，結果玩了一把「再睡 5 分鐘」的危險小遊戲賭輸了... 再次睜開眼已經是 9:10。在這準備衝出宿舍的崩潰瞬間，你會隨手抓什麼顏色的衣服套在身上？",
+        options: [
+          { label: "隱蔽低調的純黑與深灰", note: "只想當個沒有靈魂的透明人", points: { black: 3, grey: 3, blue: 1, white: 1 }, colors: ["black", "grey", "blue", "white"] },
+          { label: "腎上腺素爆發的亮黃與鮮橘", note: "準備極限百米衝刺", points: { yellow: 3, orange: 3, red: 1, turquoise: 1 }, colors: ["yellow", "orange", "red", "turquoise"] },
+          { label: "裝可憐求同情的奶茶棕與米白", note: "喚醒助教惻隱之心", points: { brown: 3, white: 3, pink: 1, green: 1 }, colors: ["brown", "white", "pink", "green"] },
+          { label: "故作鎮定的海軍藍與俐落白", note: "輸了成績但氣勢不能輸", points: { blue: 3, white: 3, black: 1, grey: 1 }, colors: ["blue", "white", "black", "grey"] }
+        ]
+      },
+      {
+        title: "中午 12 點的鎖定螢幕",
+        text: "中午 12 點，正午的陽光有些刺眼。當你按下電源鍵，螢幕亮起、但還沒解鎖的那一瞬間，映入眼簾的鎖定螢幕底色，是哪一種主色調？",
+        colorOnly: true
+      },
+      {
+        title: "凌晨三點的大腦重置色",
+        text: "凌晨三點，大腦幾乎要當機了。你決定把筆電闔上閉上雙眼。在這一片漆黑之中，如果大腦會自動召喚出一種「顏色」來幫你進行系統重置，直覺映入眼簾的是？",
+        colorOnly: true
+      },
+      {
+        title: "身心俱疲的療癒空間",
+        text: "連續幾週的期中考讓你電力耗盡。你獨自抵達神秘民宿，管家提供六個專屬療癒空間。憑直覺，身心俱疲的你最想走進哪一個？",
+        options: [
+          { label: "沉靜的林間小木屋", note: "聞得到木頭香，窗外有鳥鳴", points: { brown: 3, green: 3, grey: 1, white: 1 }, colors: ["brown", "green"] },
+          { label: "無邊際的星空露台", note: "仰望深邃夜空", points: { black: 3, blue: 3, purple: 1, turquoise: 1 }, colors: ["black", "blue"] },
+          { label: "充滿霧氣的極簡溫泉池", note: "灰白清水模，安靜得只剩水聲", points: { grey: 3, white: 3, black: 1, blue: 1 }, colors: ["grey", "white"] },
+          { label: "暖烘烘的午後玻璃溫室", note: "桌上有柑橘與熱茶", points: { orange: 3, yellow: 3, brown: 1, green: 1 }, colors: ["orange", "yellow"] },
+          { label: "魔幻霓虹的微醺地下酒吧", note: "爵士樂與夢幻調酒", points: { pink: 3, purple: 3, red: 1, orange: 1 }, colors: ["pink", "purple"] },
+          { label: "充滿生命力的珊瑚礁潛水", note: "色彩斑斕的魚群與珊瑚", points: { red: 3, turquoise: 3, pink: 1, yellow: 1 }, colors: ["red", "turquoise"] }
+        ]
+      },
+      {
+        title: "柴犬今晚的牽繩配色",
+        text: "晚上回家遛狗，你會幫柴犬選擇什麼顏色的牽繩組合？",
+        options: [
+          { label: "藍 ＋ 黃：經典高對比組合", note: "充滿活力卻不失沉穩", points: { blue: 3, yellow: 3, turquoise: 1, orange: 1 }, colors: ["blue", "yellow"] },
+          { label: "黑 ＋ 紅：強烈個性組合", note: "代表極致專注與牽絆", points: { black: 3, red: 3, grey: 1, purple: 1 }, colors: ["black", "red"] },
+          { label: "綠 ＋ 青：初夏森林組合", note: "溫柔療癒的大自然氣息", points: { green: 3, turquoise: 3, blue: 1, white: 1 }, colors: ["green", "turquoise"] },
+          { label: "粉 ＋ 白：棉花糖軟萌組合", note: "充滿愛與純潔感", points: { pink: 3, white: 3, red: 1, yellow: 1 }, colors: ["pink", "white"] },
+          { label: "棕 ＋ 橘：大地秋意組合", note: "溫暖復古像拿鐵與柑橘", points: { brown: 3, orange: 3, green: 1, yellow: 1 }, colors: ["brown", "orange"] },
+          { label: "紫 ＋ 灰：神祕極簡組合", note: "低調沉靜帶有魔幻感", points: { purple: 3, grey: 3, black: 1, pink: 1 }, colors: ["purple", "grey"] }
+        ]
+      }
+    ];
+
+    // ==========================================
+    // 3. 16 型人格資料庫
+    // ==========================================
+    const PERSONAS = {
+      HHHH: { name: "黑皮體育生 (HAPPY)", motto: "真的覺得憑甚麼歧視文組？理組有比較驕傲嗎，有載具嗎", description: "這是一個精神分裂的究極完全體。內心小劇場瘋狂運轉著「憑甚麼歧視」，甚至連日常對話都能讓他燃起熊熊怒火。但最可怕的是，他的臉上居然能無縫切換出陽光笑容說「冰美式好囉！」這種把殺氣壓縮進服務業精神的偽裝術，絕對是演化奇蹟。" },
+      HHHL: { name: "香蕉葛葛 (BananaGG)", motto: "我來到一個島 它叫卡加布列島", description: "大腦皮層大概有一半是砂糖和粉紅泡泡。別人的世界是絕地求生，他的世界是歡樂新手村。他不是裝瘋賣傻，是真的覺得只要跟小黑猩猩和蜜蜂女皇跳舞，世界就能被拯救。溫暖到讓人毛骨悚然，正向到逼人發瘋。" },
+      HHLH: { name: "王ADEN (ADEN)", motto: "我應該要把該給同學的最後一段舞給同學", description: "嚴重的主角光環妄想症。滿腦子想在最後一首歌「大跳」，遇到同學衝上台，情緒會瞬間原地爆炸。但就算氣到想報警，最後的結論依然是把舞跳完，這份至死不渝的偶像包袱感天動地。" },
+      HHLL: { name: "芒果醬 (MangoJump)", motto: "喔喔喔愛 有你的將來 我對你的感情我講不出來", description: "把現實生活當廉價熱血電影在演的無腦浪漫派。金錢地位都是狗屁，只要有「喔喔喔愛」就能靠光合作用活下去。口袋只剩一百塊依然能在紅綠燈前深情款款。純度太高的純愛戰士。" },
+      HLHH: { name: "阿志 (seventeen)", motto: "我不渣 我只是想給天下的女孩都有一個家", description: "行動的義氣發電機。搖起「花手」轉速快到可以發電。把「一聲兄弟，一生兄弟」當最高指導原則，看似無法無天的社會邊緣人，最大的宏願居然是給女孩一個家。" },
+      HLHL: { name: "孟寶 (Meng)", motto: "有時候 孟寶是怪怪寶 還好 有崴寶細心保護", description: "一談戀愛就融化成糖水的極度依戀者。世界充滿紀念日與粉紅泡泡，雖然偶爾化身無理取鬧的怪怪寶，但只要專屬避風港出現，就能立刻恢復成最甜膩黏人的可愛生物。" },
+      HLLH: { name: "過動吉吉 (ADHD)", motto: "那裡沒有書，沒有考卷，太嘈雜了，我只想好好學習", description: "靈魂是一隻極度敏感且無法忍受噪音的暴躁吉娃娃。對沒有書、考卷的場所感到生理不適，高敏感防禦機制就是用讀書來隔絕這個吵鬧的世界。" },
+      HLLL: { name: "阿公遛妻 (sixseven)", motto: "欸six seven 阿公67", description: "脫離碳基生物思考範疇，被迷因奪舍的行屍走肉。大腦沒有邏輯過濾系統，隨時播放毫無意義的洗腦神曲，存在本身就是對人類智商的最大挑釁。" },
+      LHHH: { name: "黃大謙 (BigYellow)", motto: "我買了一個45美元的燈", description: "把厭世當呼吸的冷面笑匠。不需要浮誇動作，只要用超然姿態就能把消費主義陷阱嘲諷得體無完膚。他的冷漠不是裝的，是真的覺得在座各位都很可笑。" },
+      LHHL: { name: "曾國城 (Chainsmoker)", motto: "一根菸，燒壞的不只是規矩，還有三個人的未來", description: "把胡說八道昇華成哲學的通靈大師。能把古蹟抽菸包裝成世紀大災難，聽他講話覺得智商被摩擦，但深沉嘴臉又讓人想問他大盤怎麼走。" },
+      LHLH: { name: "崴寶 (Wei)", motto: "這個草莓奶油裡面還有顆粒！他的顆粒好好吃喔", description: "細節控裡的重度強迫症。對食物有變態執著，把自己活成需要被捧在手心上的巨嬰，任何不夠精緻、沒有顆粒感的事物都入不了法眼。" },
+      LHLL: { name: "盧廣仲 (CrowdLu)", motto: "為什麼我會在台上 就是因為我買不到票 yeah", description: "廢柴程度達到天人合一。沒有規劃、沒有野心，一切順水推舟。像落葉飄到終點線隨口說句 yeah，就這樣氣死一票每天努力到吐血的普通人。" },
+      LLHH: { name: "周杰倫 (JayChou)", motto: "哎呦不錯喔", description: "裝逼界祖師爺。詞彙量被封印，永遠只會嘴角微揚給出極度敷衍卻充滿霸氣的五個字。自帶「早就看穿一切但懶得解釋」的高級氣場。" },
+      LLHL: { name: "統神 (GodTone)", motto: "我端火鍋摔倒，我一步都沒有退欸，啊這樣算我輸喔？", description: "嘴硬的終極權威，內建無敵防禦機制。就算端火鍋摔個四腳朝天，只要他不覺得自己跌倒，錯的絕對是那盆火鍋跟地心引力。" },
+      LLLH: { name: "章魚哥 (Octupus)", motto: "不管你要我做什麼工作，我都不會做的。我只在乎六點準時下班。", description: "看破資本主義謊言的極致社畜。靈魂早被榨乾，人生最高指導原則就是準時下班，試圖攔住他的人都是殺父仇人。" },
+      LLLL: { name: "快俠 (Flash)", motto: "哈......哈......哈......哈......", description: "時間流速跟凡人不同次元。世界快轉到5G，他還在撥接上網。他不是在擺爛，他是真的已經把「慢」昇華成了一種堅不可摧的物理防禦盾牌。" }
+    };
+
+    // ==========================================
+    // 4. 系統運作核心
+    // ==========================================
+    const answers = new Array(QUESTIONS.length).fill(null);
+    let currentQuestion = 0;
+    const questionView = document.getElementById("questionView");
+    const resultView = document.getElementById("resultView");
+    const progressText = document.getElementById("progressText");
+    const progressBar = document.getElementById("progressBar");
+
+    const COLOR_LOOKUP = Object.fromEntries(COLORS.map(([key, zh, en, hex]) => [key, { key, zh, en, hex }]));
+
+    function getScore(pointsObj, dimIndex) {
+        let sum = 0;
+        for (let color in pointsObj) {
+            sum += pointsObj[color] * MODEL1_COLOR_MATRIX[color][dimIndex];
+        }
+        return sum;
+    }
+
+    function getMedian(arr) {
+        const sorted = [...arr].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    // 計算 4 個維度的獨立中位數及格線
+    function calculateBaselines() {
+        const q1_v = QUESTIONS[0].options.map(opt => getScore(opt.points, 0));
+        const median_v = getMedian(q1_v_scores = q1_v);
+
+        const q4_s = QUESTIONS[3].options.map(opt => getScore(opt.points, 1));
+        const median_s = getMedian(q4_s_scores = q4_s);
+
+        const q5_r = QUESTIONS[4].options.map(opt => getScore(opt.points, 2));
+        const median_r = getMedian(q5_r_scores = q5_r);
+
+        const q2_a = COLORS.map(([key]) => getScore({[key]: 8}, 3));
+        const q3_a = COLORS.map(([key]) => getScore({[key]: 8}, 3));
+        const q23_a = [];
+        q2_a.forEach(a2 => q3_a.forEach(a3 => q23_a.push(a2 + a3)));
+        const median_a = getMedian(q23_a);
+
+        return { V: median_v, S: median_s, R: median_r, A: median_a };
+    }
+    const BASELINES = calculateBaselines();
+
+    function buildColorOptions() {
+      return COLORS.map(([key, zh, en]) => ({
+        label: `${zh} (${en})`, note: "直覺第一眼選到它。",
+        colorKey: key, points: { [key]: 8 }, colors: [key]
+      }));
+    }
+
+    function colorPairIcon(colors) {
+      if (!colors || colors.length === 0) return "";
+      const blocks = colors.slice(0, 4).map((color) => `<span style="background:${COLOR_LOOKUP[color].hex}"></span>`).join("");
+      return `<span class="palette-stack" aria-hidden="true">${blocks}</span>`;
+    }
+
+    function renderQuestion() {
+      const question = QUESTIONS[currentQuestion];
+      const options = question.colorOnly ? buildColorOptions() : question.options;
+      const selected = answers[currentQuestion];
+      const optionClass = question.colorOnly ? "options color-grid" : "options";
+
+      progressText.textContent = `第 ${currentQuestion + 1} / ${QUESTIONS.length} 題`;
+      progressBar.style.width = `${((currentQuestion + 1) / QUESTIONS.length) * 100}%`;
+
+      questionView.innerHTML = `
+        <div class="question-kicker"><span class="pill">Question ${currentQuestion + 1}</span><span>用直覺選，不要跟它耗太久</span></div>
+        <h2>${question.title}</h2>
+        <p class="question-text">${question.text}</p>
+        <div class="${optionClass}" id="options"></div>
+        <div class="actions">
+          <button class="ghost" type="button" id="backBtn">${currentQuestion === 0 ? "重新開始" : "上一題"}</button>
+          <button class="primary" type="button" id="nextBtn" ${selected === null ? "disabled" : ""}>${currentQuestion === QUESTIONS.length - 1 ? "結算大數據人格" : "下一題"}</button>
+        </div>
+      `;
+
+      const optionRoot = document.getElementById("options");
+      options.forEach((option, index) => {
+        const button = document.createElement("button");
+        button.className = "option"; button.type = "button";
+        button.setAttribute("aria-pressed", selected === index ? "true" : "false");
+
+        const icon = option.colorKey 
+          ? `<span class="swatch" style="background:${COLOR_LOOKUP[option.colorKey].hex}"></span>`
+          : colorPairIcon(option.colors) || `<span class="option-number">${String.fromCharCode(65 + index)}</span>`;
+
+        button.innerHTML = `${icon}<span><strong>${option.label}</strong><small>${option.note}</small></span>`;
+        button.addEventListener("click", () => { answers[currentQuestion] = index; renderQuestion(); });
+        optionRoot.appendChild(button);
+      });
+
+      document.getElementById("backBtn").addEventListener("click", () => {
+        if (currentQuestion === 0) answers.fill(null); else currentQuestion -= 1;
+        renderQuestion();
+      });
+      document.getElementById("nextBtn").addEventListener("click", () => {
+        if (answers[currentQuestion] === null) return;
+        if (currentQuestion < QUESTIONS.length - 1) { currentQuestion += 1; renderQuestion(); } 
+        else { renderResult(); }
+      });
+    }
+
+    function renderResult() {
+      // 擷取玩家選項
+      const q1_pts = QUESTIONS[0].options[answers[0]].points;
+      const q2_pts = buildColorOptions()[answers[1]].points;
+      const q3_pts = buildColorOptions()[answers[2]].points;
+      const q4_pts = QUESTIONS[3].options[answers[3]].points;
+      const q5_pts = QUESTIONS[4].options[answers[4]].points;
+
+      // 獨立特徵解耦計算 (V:Q1, S:Q4, R:Q5, A:Q2+Q3)
+      const user_scores = {
+          V: getScore(q1_pts, 0),
+          S: getScore(q4_pts, 1),
+          R: getScore(q5_pts, 2),
+          A: getScore(q2_pts, 3) + getScore(q3_pts, 3)
+      };
+
+      // 判定 H / L
+      const codeArr = ["V", "S", "R", "A"].map(dim => user_scores[dim] >= BASELINES[dim] ? "H" : "L");
+      const finalCode = codeArr.join("");
+      const persona = PERSONAS[finalCode];
+
+      questionView.classList.remove("active");
+      resultView.classList.add("active");
+      progressText.textContent = "數據分析完成";
+      progressBar.style.width = "100%";
+
+      // 生成能量條 HTML
+      const metricsHtml = ["V", "S", "R", "A"].map((dim) => {
+        // 計算能量條填滿比例 (視覺效果)
+        const percent = user_scores[dim] >= BASELINES[dim] ? Math.min(100, 50 + ((user_scores[dim] - BASELINES[dim]) * 15)) : Math.max(5, 50 - ((BASELINES[dim] - user_scores[dim]) * 15));
+        return `
+          <div class="metric">
+            <strong>${DIMENSION_LABELS[dim]}</strong>
+            <div class="bar" aria-hidden="true"><span style="width:${percent}%"></span></div>
+            <span><b>${user_scores[dim] >= BASELINES[dim] ? "H" : "L"}</b> <span style="color:var(--muted); font-size:12px">(${DIMENSION_SOURCE_LABELS[dim]})</span></span>
+          </div>
+        `;
+      }).join("");
+
+      resultView.innerHTML = `
+        <div class="result-hero">
+          <div class="question-kicker">
+            <span class="pill">大數據編碼 ${finalCode}</span>
+            <span>V / S / R / A</span>
+          </div>
+          <h2 class="result-title">【${persona.name}】</h2>
+          <div class="type-flags">
+            ${["V", "S", "R", "A"].map((dim, i) => `<span class="flag">${DIMENSION_LABELS[dim]} ${codeArr[i]}</span>`).join("")}
+          </div>
+          <p class="description">${persona.description}</p>
+          <p class="motto">"${persona.motto}"</p>
+        </div>
+        <div class="metrics" style="margin-top: 24px; margin-bottom: 32px;">
+            <h3 style="margin:0; font-size:16px;">📊 你的情緒大數據剖析</h3>
+            ${metricsHtml}
+        </div>
+        <div class="actions">
+          <button class="ghost" type="button" id="restartBtn">再測一次</button>
+        </div>
+      `;
+
+      document.getElementById("restartBtn").addEventListener("click", () => {
+        answers.fill(null); currentQuestion = 0;
+        resultView.classList.remove("active"); questionView.classList.add("active");
+        renderQuestion();
+      });
+    }
+
+    renderQuestion();
+  </script>
+</body>
+</html>
