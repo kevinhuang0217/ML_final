@@ -305,3 +305,25 @@ if __name__ == '__main__':
     all_pred = predict_all_colours(demo)
     df_all   = pd.DataFrame(all_pred).T
     print(df_all.round(4).to_string())
+    # ============================================================
+    # 👑 專為 SBTI 心理測驗設計：自動計算並生成 12 色大數據平均字典
+    # ============================================================
+    print("\n" + "="*60)
+    print("🔮 SBTI 心理測驗所需：12 種顏色真實大數據平均值")
+    print("="*60)
+    
+    # 讀取最原始的資料集來算平均
+    df_raw = pd.read_csv('DATA_binary.csv')
+    
+    # 計算 12 種顏色在 4 大情緒的平均值
+    color_means = df_raw.groupby('colour')[['emotion_vitality', 'emotion_stability', 'emotion_resonance', 'emotion_alert']].mean()
+    
+    print("各顏色平均值表格：")
+    print(color_means.round(4))
+    
+    print("\n🎯 [請將以下這整段直接複製，貼到 app.py 覆蓋原本的假資料] 🎯\n")
+    print("MODEL1_COLOR_MATRIX = {")
+    for color in color_means.index:
+        v, s, r, a = color_means.loc[color].values
+        print(f'    "{color}": [{v:.4f}, {s:.4f}, {r:.4f}, {a:.4f}],')
+    print("}")

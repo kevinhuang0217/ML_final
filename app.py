@@ -163,9 +163,9 @@ if st.button("✨ 啟動 AI 演算法計算最佳配色", use_container_width=Tr
                 rec = recommendations[idx]
                 real_prob = rec['prob']
                 
-                if real_prob >= 0.30: badge = "🔥 極佳匹配 (Excellent)"
-                elif real_prob >= 0.15: badge = "⭐ 專業推薦 (Professional)"
-                else: badge = "💡 創意搭配 (Creative)"
+                if real_prob >= 0.30: badge = "🔥 Excellent"
+                elif real_prob >= 0.15: badge = "⭐ good"
+                else: badge = "💡 considerable"
                     
                 col.metric(
                     label=f"🏆 第 {idx+1} 名", 
