@@ -87,7 +87,7 @@ def get_model2_recommendations(user_input_m2):
     return recommendations
 
 # =============================================================================
-# 🎛️ 系統總運作流水線 (拔除退火機制的消融實驗版)
+# 🎛️ 系統總運作流水線 (Pipeline Controller with Annealing Loop)
 # =============================================================================
 def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidence_threshold=0.30):
     if HAS_TEAM_CODE:
@@ -96,34 +96,30 @@ def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidenc
     else:
         m1_scores = {"emotion_vitality": 0.036, "emotion_stability": 0.251, "emotion_resonance": 1.246, "emotion_alert": 1.205}
     
-    # 1. 只進行一次動態權重調整 (不跑退火迴圈)
-    adjusted_emotions = model3_dynamic_adjustment(m1_scores, raw_user_emotions)
+    current_emotions = raw_user_emotions.copy()
+    max_attempts = 3
+    recommendations = []
     
-    # 2. 組合 Model 2 需要的特徵
-    user_input_m2 = adjusted_emotions.copy()
-    user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
-    
-    if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
-        user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
-        user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
-    
-    # 3. 直接丟給高斯貝氏分類器預測
-    recommendations = get_model2_recommendations(user_input_m2)
-    top1_prob = recommendations[0]["prob"]
-    
-    # 🔍 【消融實驗觀察點】直接印出無退火的原始信心度
-    print(f"\n[實驗觀察] ⚠️ 無退火狀態下，Model 2 輸出的 Top-1 最高信心度僅為: {top1_prob:.2%}")
-    if top1_prob < confidence_threshold:
-        print(f"  👉 (這代表模型已經落入長尾區域，正在進行低信心盲猜！)")
+    for attempt in range(1, max_attempts + 1):
+        adjusted_emotions = model3_dynamic_adjustment(m1_scores, current_emotions)
+        user_input_m2 = adjusted_emotions.copy()
+        user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
         
-    # 4. 過濾掉與主色相同的顏色後，嚴格切片取前三名 (Top-3)
+        if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
+            user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
+            user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
+        
+        recommendations = get_model2_recommendations(user_input_m2)
+        top1_prob = recommendations[0]["prob"]
+        
+        if top1_prob >= confidence_threshold:
+            break
+        else:
+            for k in current_emotions.keys():
+                current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
+            
+    # 💡 修正Bug：過濾掉與主色相同的顏色後，嚴格切片取前三名 (Top-3)
     final_recs = [r for r in recommendations if r["colour"] != main_color][:3]
-    
-    # 為了在終端機直接看結果，幫你加上這段 print
-    print("\n🏆 最終推薦的 3 個輔助色：")
-    for rec in final_recs:
-        print(f" - {rec['colour']} (機率: {rec['prob']:.2%})")
-        
     return final_recs
 
 # =============================================================================
