@@ -44,7 +44,7 @@ plt.axhline(y=12, color='gray', linestyle='--', label="盲猜警戒線 (12%)")
 
 plt.xticks([0, 1], labels, fontsize=14)
 plt.ylabel("Top-1 預測信心度 (%)", fontsize=14)
-plt.title("大規模極端測資壓力測試 (N=1,000)", fontsize=18, fontweight='bold', pad=15)
+plt.title("多比資料隨機測試 (N=1,000)", fontsize=18, fontweight='bold', pad=15)
 plt.legend(loc='upper left')
 plt.grid(axis='y', linestyle='--', alpha=0.6)
 

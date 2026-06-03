@@ -87,39 +87,64 @@ def get_model2_recommendations(user_input_m2):
     return recommendations
 
 # =============================================================================
-# 🎛️ 系統總運作流水線 (Pipeline Controller with Annealing Loop)
+# 🎛️ 系統總運作流水線 (⚠️ 消融實驗版：拔除動態權重，寫死 50/50)
 # =============================================================================
 def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidence_threshold=0.30):
+    # 1. 取得 Model 1 的真實大數據基準
     if HAS_TEAM_CODE:
         all_m1 = predict_all_colours(user_profile, params_dir='model1_params')
         m1_scores = all_m1.get(main_color, {"emotion_vitality": 1.0, "emotion_stability": 1.0, "emotion_resonance": 1.0, "emotion_alert": 1.0})
     else:
         m1_scores = {"emotion_vitality": 0.036, "emotion_stability": 0.251, "emotion_resonance": 1.246, "emotion_alert": 1.205}
     
-    current_emotions = raw_user_emotions.copy()
-    max_attempts = 3
-    recommendations = []
+    # =================================================================
+    # 💥 【拔掉保護罩】把你的動態權重註解掉，改成無腦 50/50
+    # =================================================================
+    # 原本的完美版：
+    # adjusted_emotions = model3_dynamic_adjustment(m1_scores, raw_user_emotions)
     
-    for attempt in range(1, max_attempts + 1):
-        adjusted_emotions = model3_dynamic_adjustment(m1_scores, current_emotions)
-        user_input_m2 = adjusted_emotions.copy()
+    # 現在的災難版 (強制對切平分)：
+    adjusted_emotions = {}
+    for k in m1_scores.keys():
+        user_val = raw_user_emotions.get(k, 0)
+        adjusted_emotions[k] = (m1_scores[k] + user_val) / 2.0
+    # =================================================================
+        
+    current_emotions = adjusted_emotions.copy()
+    
+    # 3. 啟動導航儀：退火迴圈 (最多 3 次) - 這邊保留，讓你看看即使有退火也救不回來的慘況
+    max_iterations = 3
+    final_recs = []
+    
+    for i in range(max_iterations + 1):
+        # 組合 Model 2 需要的特徵
+        user_input_m2 = current_emotions.copy()
         user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
         
         if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
             user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
             user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
         
+        # 丟給分類器預測
         recommendations = get_model2_recommendations(user_input_m2)
-        top1_prob = recommendations[0]["prob"]
         
-        if top1_prob >= confidence_threshold:
+        # 嚴格過濾掉主色
+        filtered_recs = [r for r in recommendations if r["colour"] != main_color]
+        
+        if not filtered_recs:
             break
-        else:
-            for k in current_emotions.keys():
-                current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
             
-    # 💡 修正Bug：過濾掉與主色相同的顏色後，嚴格切片取前三名 (Top-3)
-    final_recs = [r for r in recommendations if r["colour"] != main_color][:3]
+        top1_prob = filtered_recs[0]["prob"]
+        final_recs = filtered_recs[:3] # 取前三名
+        
+        # 判斷是否需要退火
+        if top1_prob >= confidence_threshold or i == max_iterations:
+            break
+            
+        # 退火公式
+        for k in current_emotions:
+            current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
+
     return final_recs
 
 # =============================================================================
