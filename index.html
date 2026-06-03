@@ -156,6 +156,8 @@
       .hero { grid-template-columns: 1fr; min-height: auto; background-position: center top, center top; }
       .brand { min-height: 38vh; display: flex; flex-direction: column; justify-content: flex-start; padding: 28px 20px 72px; }
       .brand h1 { font-size: 42px; }
+      /* 解除手機版的測驗區塊高度限制，讓它自然延伸，解決雙重滾動條衝突 */
+      .app { max-height: none; overflow: visible; }
     }
     @media (max-width: 620px) {
       .brand h1 { font-size: 34px; }
@@ -204,7 +206,7 @@
 
   <script>
     // ==========================================
-    // 1. 核心大數據矩陣 (保留原 index 的 Model 1 權重)
+    // 1. 核心大數據矩陣 
     // ==========================================
     const MODEL1_COLOR_MATRIX = {
         black: [1.2, 4.8, 1.5, 4.2], blue: [1.5, 4.5, 4.0, 1.1],
@@ -228,7 +230,7 @@
     const DIMENSION_SOURCE_LABELS = { V: "Q1 遲到危機", S: "Q4 療癒空間", R: "Q5 牽繩配色", A: "Q2+Q3 大腦底色" };
 
     // ==========================================
-    // 2. 心理測驗題目區 (保留原 index 的題目與邏輯)
+    // 2. 心理測驗題目區 
     // ==========================================
     const QUESTIONS = [
       {
@@ -278,7 +280,7 @@
     ];
 
     // ==========================================
-    // 3. 16 型人格資料庫 (結合 index 的圖片與 index1 的生動文案)
+    // 3. 16 型人格資料庫 
     // ==========================================
     const PERSONAS = {
       HHHH: { 
@@ -416,6 +418,14 @@
     }
 
     function renderQuestion() {
+      // ✅ 換題時自動平滑置頂 (解決手機版 Lag 錯覺)
+      const appContainer = document.querySelector('.app');
+      if (window.innerWidth <= 980) {
+          appContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+          appContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
       const question = QUESTIONS[currentQuestion];
       const options = question.colorOnly ? buildColorOptions() : question.options;
       const selected = answers[currentQuestion];
@@ -462,6 +472,14 @@
     }
 
     function renderResult() {
+      // ✅ 結算時自動平滑置頂
+      const appContainer = document.querySelector('.app');
+      if (window.innerWidth <= 980) {
+          appContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+          appContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
       // 擷取玩家選項
       const q1_pts = QUESTIONS[0].options[answers[0]].points;
       const q2_pts = buildColorOptions()[answers[1]].points;
@@ -499,7 +517,7 @@
         `;
       }).join("");
 
-      // 渲染最終畫面 (套用暗色質感的照片相框)
+      // 渲染最終畫面
       resultView.innerHTML = `
         <div class="result-hero">
           <div class="question-kicker">
