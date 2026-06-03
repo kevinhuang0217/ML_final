@@ -129,15 +129,38 @@ st.subheader("2️⃣ 策略性視覺感受 (Strategic Visual Impact)")
 st.markdown("請調控以下情緒指標分數，將引導模型為您推薦最佳配色。")
 
 # ==========================================
-# 4-1. 指標說明卡片樣式
+# 4-1. 指標說明函式
 # ==========================================
 
-def indicator_explanation(user_text, usage_text):
-    st.warning(
-        f"**說明：** {user_text}\n\n"
-        f"**適合用途：** {usage_text}"
-    )
+st.markdown(
+    """
+    <style>
+    .indicator-box {
+        background-color: #F5F5F5;
+        border: 1px solid #D9D9D9;
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin-top: 6px;
+        margin-bottom: 18px;
+        color: #333333;
+        font-size: 0.92rem;
+        line-height: 1.65;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
+def indicator_explanation(user_text, usage_text):
+    st.markdown(
+        f"""
+        <div class="indicator-box">
+            <b>指標說明：</b>{user_text}<br><br>
+            <b>適合用途：</b>{usage_text}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ==========================================
 # 4-2. 四個情緒指標輸入
