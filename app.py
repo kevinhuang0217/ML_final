@@ -33,31 +33,34 @@ st.divider()
 # ==========================================
 # 🌍 擴充至 ISO 3166-1 標準的完整國家字典
 COUNTRY_MAP = {
-    "tw": "Taiwan", "cn": "China", "hk": "Hong Kong", "mo": "Macau", "jp": "Japan", "kr": "South Korea", 
-    "sg": "Singapore", "my": "Malaysia", "id": "Indonesia", "th": "Thailand", "vn": "Vietnam", 
-    "ph": "Philippines", "in": "India", "au": "Australia", "nz": "New Zealand", "us": "United States", 
-    "ca": "Canada", "mx": "Mexico", "br": "Brazil", "ar": "Argentina", "cl": "Chile", "co": "Colombia", 
-    "pe": "Peru", "gb": "United Kingdom", "uk": "United Kingdom", "ie": "Ireland", "fr": "France", 
-    "de": "Germany", "es": "Spain", "it": "Italy", "pt": "Portugal", "nl": "Netherlands", "be": "Belgium", 
-    "ch": "Switzerland", "at": "Austria", "se": "Sweden", "no": "Norway", "fi": "Finland", "dk": "Denmark", 
-    "pl": "Poland", "ru": "Russia", "ua": "Ukraine", "gr": "Greece", "tr": "Turkey", "cz": "Czech Republic", 
-    "ro": "Romania", "ae": "United Arab Emirates", "sa": "Saudi Arabia", "il": "Israel", "eg": "Egypt", 
-    "za": "South Africa", "ng": "Nigeria", "ke": "Kenya", "hu": "Hungary", "bg": "Bulgaria", "hr": "Croatia", 
-    "rs": "Serbia", "sk": "Slovakia", "si": "Slovenia", "ee": "Estonia", "lv": "Latvia", "lt": "Lithuania",
-    "bd": "Bangladesh", "pk": "Pakistan", "lk": "Sri Lanka", "mm": "Myanmar (Burma)", "kh": "Cambodia",
-    "ma": "Morocco", "dz": "Algeria", "tn": "Tunisia", "gh": "Ghana", "tz": "Tanzania"
+    'az': 'Azerbaijan', 'gr': 'Greece', 'no': 'Norway', 'de': 'Germany', 'ch': 'Switzerland', 
+    'se': 'Sweden', 'eg': 'Egypt', 'es': 'Spain', 'pl': 'Poland', 'cn': 'China', 
+    'gb': 'United Kingdom', 'fi': 'Finland', 'ee': 'Estonia', 'lt': 'Lithuania', 'ru': 'Russia', 
+    'mx': 'Mexico', 'ge': 'Georgia', 'it': 'Italy', 'co': 'Colombia', 'us': 'United States', 
+    'rs': 'Serbia', 'nl': 'Netherlands', 'fr': 'France', 'sa': 'Saudi Arabia', 'ir': 'Iran', 
+    'be': 'Belgium', 'il': 'Israel', 'ng': 'Nigeria', 'nz': 'New Zealand', 'ua': 'Ukraine', 
+    'at': 'Austria', 'ph': 'Philippines', 'jp': 'Japan', 'cy': 'Cyprus', 'lv': 'Latvia', 
+    'in': 'India', 'hr': 'Croatia', 'uy': 'Uruguay', 'pf': 'French Polynesia', 'tl': 'East Timor', 
+    'za': 'South Africa', 'sg': 'Singapore', 'pt': 'Portugal', 'cl': 'Chile', 'my': 'Malaysia', 
+    'mc': 'Monaco', 'ae': 'United Arab Emirates', 'dk': 'Denmark', 'pn': 'Pitcairn Islands', 
+    'ke': 'Kenya', 'nu': 'Niue', 'dnwta': 'Do Not Want To Answer', 'om': 'Oman', 
+    'do': 'Dominican Republic', 'ma': 'Morocco', 'sr': 'Suriname', 'pk': 'Pakistan', 
+    'je': 'Jersey', 'sz': 'Eswatini', 'uz': 'Uzbekistan', 'md': 'Moldova', 'ki': 'Kiribati', 
+    'ba': 'Bosnia and Herzegovina', 'br': 'Brazil', 'vn': 'Vietnam', 'pa': 'Panama', 
+    'by': 'Belarus', 'ca': 'Canada', 'ar': 'Argentina', 'li': 'Liechtenstein', 'lu': 'Luxembourg', 
+    'au': 'Australia', 'ad': 'Andorra', 'bg': 'Bulgaria', 'mt': 'Malta', 'so': 'Somalia', 
+    'ug': 'Uganda', 'ie': 'Ireland', 'tr': 'Turkey', 'sk': 'Slovakia', 'id': 'Indonesia'
 }
 
 # 🗣️ 擴充至 ISO 639-1 標準的完整語言字典
 LANG_MAP = {
-    "en": "English", "zh": "Chinese", "es": "Spanish", "fr": "French", "de": "German", "ja": "Japanese", 
-    "ko": "Korean", "it": "Italian", "pt": "Portuguese", "ru": "Russian", "ar": "Arabic", "hi": "Hindi",
-    "nl": "Dutch", "pl": "Polish", "sv": "Swedish", "da": "Danish", "fi": "Finnish", "no": "Norwegian", 
-    "el": "Greek", "he": "Hebrew", "ro": "Romanian", "hu": "Hungarian", "cs": "Czech", "uk": "Ukrainian",
-    "ms": "Malay", "id": "Indonesian", "th": "Thai", "vi": "Vietnamese", "tl": "Tagalog", "bn": "Bengali", 
-    "ta": "Tamil", "ur": "Urdu", "fa": "Persian", "tr": "Turkish", "sk": "Slovak", "bg": "Bulgarian", 
-    "hr": "Croatian", "sr": "Serbian", "sl": "Slovenian", "et": "Estonian", "lv": "Latvian", "lt": "Lithuanian",
-    "sw": "Swahili", "am": "Amharic", "yo": "Yoruba", "zu": "Zulu"
+    'az': 'Azerbaijani', 'gr': 'Greek', 'no': 'Norwegian', 'de': 'German', 
+    'fr': 'French', 'se': 'Swedish', 'ar': 'Arabic', 'es': 'Spanish', 
+    'pl': 'Polish', 'zh': 'Chinese', 'en': 'English', 'fi': 'Finnish', 
+    'et': 'Estonian', 'lt': 'Lithuanian', 'ru': 'Russian', 'ka': 'Georgian', 
+    'it': 'Italian', 'sr': 'Serbian', 'nl': 'Dutch', 'fa': 'Persian', 
+    'he': 'Hebrew', 'uk': 'Ukrainian', 'ja': 'Japanese', 'lv': 'Latvian', 
+    'hr': 'Croatian', 'dnwta': 'Do Not Want To Answer'
 }
 
 # 去除縮寫，只顯示國家/語言全名
