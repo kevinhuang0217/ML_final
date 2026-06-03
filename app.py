@@ -6,7 +6,7 @@ from main_pipeline import run_advanced_pipeline
 # ==========================================
 # 1. 網頁基本設定與效能優化 (Caching)
 # ==========================================
-st.set_page_config(page_title="商業簡報視覺配色系統", page_icon="🎨", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="簡報視覺配色模型", page_icon="🎨", layout="wide", initial_sidebar_state="expanded")
 
 hide_streamlit_style = """
 <style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>
@@ -24,7 +24,7 @@ def load_csv_mappings():
 
 country_mapping, lang_mapping = load_csv_mappings()
 
-st.title("商業簡報視覺配色演算法")
+st.title("簡報視覺配色模型")
 st.markdown("##### 基於機器學習，為您的商業提案與專案報告計算最具說服力的視覺搭配。")
 st.divider()
 
@@ -77,7 +77,7 @@ def format_lang(code):
 # ==========================================
 with st.sidebar:
     st.header("👤 受眾設定")
-    st.markdown("系統將依據您設定的受眾文化與背景，動態微調底層機率分佈。")
+    st.markdown("系統將依據您設定的受眾文化與背景，動態微調機率分佈。")
     
     gender_choice = st.radio("受眾主要性別？", ["女性", "男性", "不願透露"])
     age_choice = st.selectbox("受眾年齡層？", ["未成年 (<18)", "青年 (18-35)", "中年 (36-55)", "壯年 (56+)"], index=1)
@@ -121,27 +121,144 @@ with st.sidebar:
 all_colors = ['black', 'blue', 'brown', 'green', 'grey', 'orange', 'pink', 'purple', 'red', 'turquoise', 'white', 'yellow']
 
 st.subheader("1️⃣ 定義品牌/簡報主色 (Primary Color)")
-main_color = st.selectbox("請選擇您這份提案預設的「主要底色」：", all_colors)
+main_color = st.selectbox("請選擇您這份提案選定的「主要底色」：", all_colors)
 
 st.divider()
 
 st.subheader("2️⃣ 策略性視覺感受 (Strategic Visual Impact)")
-st.markdown("請根據商業意圖調控以下情緒分數。這將引導演算法為您推薦最佳配色。")
+st.markdown("請調控以下情緒指標分數，將引導模型為您推薦最佳配色。")
 
+# ==========================================
+# 4-1. 指標說明卡片樣式
+# ==========================================
+st.markdown("""
+<style>
+.indicator-card {
+    background-color: #fffdf8;
+    border: 1px solid rgba(0,0,0,0.10);
+    border-radius: 14px;
+    padding: 10px 13px;
+    margin-top: 6px;
+    margin-bottom: 18px;
+    font-size: 0.86rem;
+    line-height: 1.65;
+    color: #333333;
+}
+
+.indicator-card b {
+    color: #222222;
+}
+
+.indicator-tag {
+    display: inline-block;
+    background-color: #f1f3f5;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin: 2px 4px 2px 0;
+    font-size: 0.78rem;
+    color: #555555;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+def indicator_explanation(user_text, emotion_words, usage_text):
+    st.markdown(f"""
+    <div class="indicator-card">
+        <b>使用者理解：</b>{user_text}<br>
+        <b>對應情緒詞：</b><br>
+        {emotion_words}<br>
+        <b>適合用途：</b>{usage_text}
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ==========================================
+# 4-2. 四個情緒指標輸入
+# ==========================================
 col1, col2 = st.columns(2)
+
 with col1:
-    st.markdown("#### 🏃 活力動能 (Vitality)")
-    v = st.slider("活力感分數", 0.0, 5.0, 2.5, 0.1, label_visibility="collapsed")
-    st.markdown("#### 💧 情感共鳴 (Resonance)")
-    r = st.slider("共鳴感分數", 0.0, 5.0, 2.5, 0.1, label_visibility="collapsed")
+    st.markdown("#### 🏃 活力感 (Vitality)")
+    v = st.slider(
+        "活力感分數",
+        0.0, 5.0, 2.5, 0.1,
+        label_visibility="collapsed"
+    )
+    indicator_explanation(
+        user_text="開心、有趣、吸引人、想參與。",
+        emotion_words="""
+        <span class="indicator-tag">joy</span>
+        <span class="indicator-tag">amusement</span>
+        <span class="indicator-tag">pleasure</span>
+        <span class="indicator-tag">interest</span>
+        <span class="indicator-tag">love</span>
+        """,
+        usage_text="社團活動、活動海報、IG 宣傳圖、餐飲娛樂、活動行銷。"
+    )
+
+    st.markdown("#### 💧 共鳴感 (Resonance)")
+    r = st.slider(
+        "共鳴感分數",
+        0.0, 5.0, 2.5, 0.1,
+        label_visibility="collapsed"
+    )
+    indicator_explanation(
+        user_text="讓人有感、同理、反思、情緒沉澱。",
+        emotion_words="""
+        <span class="indicator-tag">sadness</span>
+        <span class="indicator-tag">disappointment</span>
+        <span class="indicator-tag">regret</span>
+        <span class="indicator-tag">guilt</span>
+        <span class="indicator-tag">shame</span>
+        """,
+        usage_text="心理健康貼文、公益宣傳、議題型海報、紀念活動、社會議題宣傳。"
+    )
 
 with col2:
-    st.markdown("#### 🧘 專業穩定 (Stability)")
-    s = st.slider("穩定感分數", 0.0, 5.0, 2.5, 0.1, label_visibility="collapsed")
-    st.markdown("#### ⚠️ 警示驅動 (Alert)")
-    a = st.slider("警示感分數", 0.0, 5.0, 2.5, 0.1, label_visibility="collapsed")
+    st.markdown("#### 🧘 穩定感 (Stability)")
+    s = st.slider(
+        "穩定感分數",
+        0.0, 5.0, 2.5, 0.1,
+        label_visibility="collapsed"
+    )
+    indicator_explanation(
+        user_text="可靠、安心、有完成度、看起來正式。",
+        emotion_words="""
+        <span class="indicator-tag">admiration</span>
+        <span class="indicator-tag">pride</span>
+        <span class="indicator-tag">contentment</span>
+        <span class="indicator-tag">relief</span>
+        <span class="indicator-tag">compassion</span>
+        """,
+        usage_text="課堂簡報、期末專題、成果發表、金融醫療、企業簡報、科技產品。"
+    )
 
-user_emotions = {"emotion_vitality": v, "emotion_stability": s, "emotion_resonance": r, "emotion_alert": a}
+    st.markdown("#### ⚠️ 警示感 (Alert)")
+    a = st.slider(
+        "警示感分數",
+        0.0, 5.0, 2.5, 0.1,
+        label_visibility="collapsed"
+    )
+    indicator_explanation(
+        user_text="緊張、強烈、提醒、危機感。",
+        emotion_words="""
+        <span class="indicator-tag">anger</span>
+        <span class="indicator-tag">contempt</span>
+        <span class="indicator-tag">disgust</span>
+        <span class="indicator-tag">fear</span>
+        <span class="indicator-tag">hate</span>
+        """,
+        usage_text="警示海報、反詐騙宣傳、安全提醒、危機宣導、強烈議題廣告。"
+    )
+
+
+user_emotions = {
+    "emotion_vitality": v,
+    "emotion_stability": s,
+    "emotion_resonance": r,
+    "emotion_alert": a
+}
 
 st.divider()
 
@@ -176,8 +293,8 @@ def get_text_color(bg_color_name):
 # ==========================================
 # 6. 執行推論與結果展示
 # ==========================================
-if st.button("✨ 啟動 AI 演算法計算最佳配色", use_container_width=True, type="primary"):
-    with st.spinner("AI 引擎運算中 (貝氏機率分佈與退火尋優)..."):
+if st.button("✨ 啟動模型計算最佳配色", use_container_width=True, type="primary"):
+    with st.spinner("模型運算中..."):
         
         recommendations = run_advanced_pipeline(user_profile, main_color, user_emotions)
         st.success("✅ 分析完成！")
@@ -186,7 +303,7 @@ if st.button("✨ 啟動 AI 演算法計算最佳配色", use_container_width=Tr
         hex_main = UI_COLOR_MAP.get(main_color, main_color)
         hex_c1, hex_c2, hex_c3 = UI_COLOR_MAP.get(c1, c1), UI_COLOR_MAP.get(c2, c2), UI_COLOR_MAP.get(c3, c3)
         
-        st.subheader(f"🎨 針對主色「{main_color.upper()}」，系統推薦的最佳搭配：")
+        st.subheader(f"🎨 針對主色「{main_color.upper()}」，模型推薦的最佳搭配：")
         
         res_cols = st.columns(3)
         for idx, col in enumerate(res_cols):
@@ -207,7 +324,8 @@ if st.button("✨ 啟動 AI 演算法計算最佳配色", use_container_width=Tr
                 
         # 實體配色預覽
         st.write("")
-        st.markdown("#### 👀 實體配色預覽 (Palette Preview)")
+        st.markdown("#### 👀 參考配色 (Color Palette)")
+        st.markdown("本配色僅作為參考示意，由於模型以英文色彩詞彙進行判斷，實際結果著重於色彩意圖，而非完全對應圖中色碼。")
         
         main_border = "border: 1px solid #E2E8F0;" if main_color == "white" else ""
         html_code = f"""
@@ -245,7 +363,7 @@ if st.button("✨ 啟動 AI 演算法計算最佳配色", use_container_width=Tr
 
         # XAI 可解釋性
         st.write("")
-        with st.expander("💡 為什麼 AI 推薦這些顏色？ (點擊查看模型可解釋性 XAI)"):
+        with st.expander("💡 為什麼 AI 推薦這些顏色？ (點擊查看模型可解釋性)"):
             st.markdown(f"**🥇 Top 1 ({c1.capitalize()}):** {XAI_EXPLANATION.get(c1, '')}")
             st.markdown(f"**🥈 Top 2 ({c2.capitalize()}):** {XAI_EXPLANATION.get(c2, '')}")
             st.markdown(f"**🥉 Top 3 ({c3.capitalize()}):** {XAI_EXPLANATION.get(c3, '')}")
