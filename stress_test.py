@@ -66,7 +66,7 @@ def run_annealing_isolation_test(user_profile, main_color, raw_user_emotions, co
         else:
             # 執行退火：向常態中位數 2.5 靠攏
             for k in current_emotions.keys():
-                current_emotions[k] = current_emotions[k] * 0.85 + 2.5 * 0.15
+                current_emotions[k] = current_emotions[k] * 0.9 + 2.5 * 0.1
             
     return prob_before_annealing, prob_after_annealing
 

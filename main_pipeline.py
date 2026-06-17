@@ -9,9 +9,9 @@ try:
     from model1_LSM import predict_all_colours
     from model2_classification import set_binary_category_input, model2_predict_top3, feature_cols
     HAS_TEAM_CODE = True
-except Exception as e:     # 🌟 這裡把 ImportError 改成捕捉所有 Exception
+except Exception as e:     
     HAS_TEAM_CODE = False
-    print(f"🚨 系統切換至模擬模式，因為匯入失敗！真實的錯誤原因是：{e}") # 🌟 把真正的死因印出來
+    print(f"系統切換至模擬模式，因為匯入失敗！真實的錯誤原因是：{e}") 
 
 # 載入二進位映射表
 if os.path.exists("country_binary_mapping.csv") and os.path.exists("lang_binary_mapping.csv"):
