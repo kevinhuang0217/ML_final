@@ -1,0 +1,1349 @@
+# =============================================================================
+# 🎛️ 系統總運作流水線 (Pipeline Controller with Annealing Loop)
+# =============================================================================
+def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidence_threshold=0.30):
+    if HAS_TEAM_CODE:
+        all_m1 = predict_all_colours(user_profile, params_dir='model1_params')
+        m1_scores = all_m1.get(main_color, {"emotion_vitality": 1.0, "emotion_stability": 1.0, "emotion_resonance": 1.0, "emotion_alert": 1.0})
+    else:
+        m1_scores = {"emotion_vitality": 0.036, "emotion_stability": 0.251, "emotion_resonance": 1.246, "emotion_alert": 1.205}
+    
+    current_emotions = raw_user_emotions.copy()
+    max_attempts = 3
+    recommendations = []
+    
+    for attempt in range(1, max_attempts + 1):
+        adjusted_emotions = model3_dynamic_adjustment(m1_scores, current_emotions)
+        user_input_m2 = adjusted_emotions.copy()
+        user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
+        
+        if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
+            user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
+            user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
+        
+        recommendations = get_model2_recommendations(user_input_m2)
+        top1_prob = recommendations[0]["prob"]
+        
+        if top1_prob >= confidence_threshold:
+            break
+        else:
+            for k in current_emotions.keys():
+                current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
+            
+    # 💡 修正Bug：過濾掉與主色相同的顏色後，嚴格切片取前三名 (Top-3)
+    final_recs = [r for r in recommendations if r["colour"] != main_color][:3]
+    return final_recs
+
+
+# =============================================================================
+# 🎛️ 系統總運作流水線 (拔除退火機制的消融實驗版)
+# =============================================================================
+def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidence_threshold=0.30):
+    if HAS_TEAM_CODE:
+        all_m1 = predict_all_colours(user_profile, params_dir='model1_params')
+        m1_scores = all_m1.get(main_color, {"emotion_vitality": 1.0, "emotion_stability": 1.0, "emotion_resonance": 1.0, "emotion_alert": 1.0})
+    else:
+        m1_scores = {"emotion_vitality": 0.036, "emotion_stability": 0.251, "emotion_resonance": 1.246, "emotion_alert": 1.205}
+    
+    # 1. 只進行一次動態權重調整 (不跑退火迴圈)
+    adjusted_emotions = model3_dynamic_adjustment(m1_scores, raw_user_emotions)
+    
+    # 2. 組合 Model 2 需要的特徵
+    user_input_m2 = adjusted_emotions.copy()
+    user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
+    
+    if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
+        user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
+        user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
+    
+    # 3. 直接丟給高斯貝氏分類器預測
+    recommendations = get_model2_recommendations(user_input_m2)
+    top1_prob = recommendations[0]["prob"]
+    
+    # 🔍 【消融實驗觀察點】直接印出無退火的原始信心度
+    print(f"\n[實驗觀察] ⚠️ 無退火狀態下，Model 2 輸出的 Top-1 最高信心度僅為: {top1_prob:.2%}")
+    if top1_prob < confidence_threshold:
+        print(f"  👉 (這代表模型已經落入長尾區域，正在進行低信心盲猜！)")
+        
+    # 4. 過濾掉與主色相同的顏色後，嚴格切片取前三名 (Top-3)
+    final_recs = [r for r in recommendations if r["colour"] != main_color][:3]
+    
+    # 為了在終端機直接看結果，幫你加上這段 print
+    print("\n🏆 最終推薦的 3 個輔助色：")
+    for rec in final_recs:
+        print(f" - {rec['colour']} (機率: {rec['prob']:.2%})")
+        
+    return final_recs
+
+# =============================================================================
+# 🎛️ 系統總運作流水線 (⚠️ 消融實驗版：拔除動態權重，寫死 50/50)
+# =============================================================================
+def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidence_threshold=0.30):
+    # 1. 取得 Model 1 的真實大數據基準
+    if HAS_TEAM_CODE:
+        all_m1 = predict_all_colours(user_profile, params_dir='model1_params')
+        m1_scores = all_m1.get(main_color, {"emotion_vitality": 1.0, "emotion_stability": 1.0, "emotion_resonance": 1.0, "emotion_alert": 1.0})
+    else:
+        m1_scores = {"emotion_vitality": 0.036, "emotion_stability": 0.251, "emotion_resonance": 1.246, "emotion_alert": 1.205}
+    
+    # =================================================================
+    # 💥 【拔掉保護罩】把你的動態權重註解掉，改成無腦 50/50
+    # =================================================================
+    # 原本的完美版：
+    # adjusted_emotions = model3_dynamic_adjustment(m1_scores, raw_user_emotions)
+    
+    # 現在的災難版 (強制對切平分)：
+    adjusted_emotions = {}
+    for k in m1_scores.keys():
+        user_val = raw_user_emotions.get(k, 0)
+        adjusted_emotions[k] = (m1_scores[k] + user_val) / 2.0
+    # =================================================================
+        
+    current_emotions = adjusted_emotions.copy()
+    
+    # 3. 啟動導航儀：退火迴圈 (最多 3 次) - 這邊保留，讓你看看即使有退火也救不回來的慘況
+    max_iterations = 3
+    final_recs = []
+    
+    for i in range(max_iterations + 1):
+        # 組合 Model 2 需要的特徵
+        user_input_m2 = current_emotions.copy()
+        user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
+        
+        if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
+            user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
+            user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
+        
+        # 丟給分類器預測
+        recommendations = get_model2_recommendations(user_input_m2)
+        
+        # 嚴格過濾掉主色
+        filtered_recs = [r for r in recommendations if r["colour"] != main_color]
+        
+        if not filtered_recs:
+            break
+            
+        top1_prob = filtered_recs[0]["prob"]
+        final_recs = filtered_recs[:3] # 取前三名
+        
+        # 判斷是否需要退火
+        if top1_prob >= confidence_threshold or i == max_iterations:
+            break
+            
+        # 退火公式
+        for k in current_emotions:
+            current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
+
+    return final_recs
+
+# =============================================================================
+# 🎛️ 系統總運作流水線 (Pipeline Controller with Annealing Loop)
+# =============================================================================
+def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidence_threshold=0.30):
+    if HAS_TEAM_CODE:
+        all_m1 = predict_all_colours(user_profile, params_dir='model1_params')
+        m1_scores = all_m1.get(main_color, {"emotion_vitality": 1.0, "emotion_stability": 1.0, "emotion_resonance": 1.0, "emotion_alert": 1.0})
+    else:
+        m1_scores = {"emotion_vitality": 0.036, "emotion_stability": 0.251, "emotion_resonance": 1.246, "emotion_alert": 1.205}
+    
+    current_emotions = raw_user_emotions.copy()
+    max_attempts = 3
+    recommendations = []
+    
+    for attempt in range(1, max_attempts + 1):
+        adjusted_emotions = model3_dynamic_adjustment(m1_scores, current_emotions)
+        user_input_m2 = adjusted_emotions.copy()
+        user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
+        
+        if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
+            user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
+            user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
+        
+        recommendations = get_model2_recommendations(user_input_m2)
+        top1_prob = recommendations[0]["prob"]
+        
+        if top1_prob >= confidence_threshold:
+            break
+        else:
+            for k in current_emotions.keys():
+                current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
+            
+    # 💡 修正Bug：過濾掉與主色相同的顏色後，嚴格切片取前三名 (Top-3)
+    final_recs = [r for r in recommendations if r["colour"] != main_color][:3]
+    return final_recs
+
+# =============================================================================
+# 🎛️ 系統總運作流水線 (⚠️ 消融實驗版：拔除動態權重，寫死 50/50)
+# =============================================================================
+def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidence_threshold=0.30):
+    # 1. 取得 Model 1 的真實大數據基準
+    if HAS_TEAM_CODE:
+        all_m1 = predict_all_colours(user_profile, params_dir='model1_params')
+        m1_scores = all_m1.get(main_color, {"emotion_vitality": 1.0, "emotion_stability": 1.0, "emotion_resonance": 1.0, "emotion_alert": 1.0})
+    else:
+        m1_scores = {"emotion_vitality": 0.036, "emotion_stability": 0.251, "emotion_resonance": 1.246, "emotion_alert": 1.205}
+    
+    # =================================================================
+    # 💥 【拔掉保護罩】把你的動態權重註解掉，改成無腦 50/50
+    # =================================================================
+    # 原本的完美版：
+    # adjusted_emotions = model3_dynamic_adjustment(m1_scores, raw_user_emotions)
+    
+    # 現在的災難版 (強制對切平分)：
+    adjusted_emotions = {}
+    for k in m1_scores.keys():
+        user_val = raw_user_emotions.get(k, 0)
+        adjusted_emotions[k] = (m1_scores[k] + user_val) / 2.0
+    # =================================================================
+        
+    current_emotions = adjusted_emotions.copy()
+    
+    # 3. 啟動導航儀：退火迴圈 (最多 3 次) - 這邊保留，讓你看看即使有退火也救不回來的慘況
+    max_iterations = 3
+    final_recs = []
+    
+    for i in range(max_iterations + 1):
+        # 組合 Model 2 需要的特徵
+        user_input_m2 = current_emotions.copy()
+        user_input_m2.update({"fluentenglish": user_profile["fluentenglish"], "gender": user_profile["gender"], "age_group": user_profile["age_group"]})
+        
+        if HAS_TEAM_CODE and country_mapping is not None and lang_mapping is not None:
+            user_input_m2 = set_binary_category_input(user_input_m2, country_mapping, "residencecountry", "country_binary", "country", user_profile.get("country_code", "us"))
+            user_input_m2 = set_binary_category_input(user_input_m2, lang_mapping, "mothertongue", "lang_binary", "lang", user_profile.get("lang_code", "en"))
+        
+        # 丟給分類器預測
+        recommendations = get_model2_recommendations(user_input_m2)
+        
+        # 嚴格過濾掉主色
+        filtered_recs = [r for r in recommendations if r["colour"] != main_color]
+        
+        if not filtered_recs:
+            break
+            
+        top1_prob = filtered_recs[0]["prob"]
+        final_recs = filtered_recs[:3] # 取前三名
+        
+        # 判斷是否需要退火
+        if top1_prob >= confidence_threshold or i == max_iterations:
+            break
+            
+        # 退火公式
+        for k in current_emotions:
+            current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
+
+    return final_recs
+
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>校園 SBTI 心理測驗</title>
+  <style>
+    /* ========== 暗色質感 CSS 樣式與排版 ========== */
+    :root {
+      --ink: #f7f7f7; --muted: #eef2ff; --paper: #08080b;
+      --line: rgba(255, 255, 255, 0.16); --panel: rgba(10, 11, 17, 0.82);
+      --shadow: 0 26px 70px rgba(0, 0, 0, 0.55), 0 0 42px rgba(98, 198, 199, 0.12);
+      --radius: 8px;
+      --red: #e85842; --orange: #f28b3c; --yellow: #f5cf4c;
+      --green: #5a9a59; --turquoise: #62c6c7; --blue: #4d88d6;
+      --purple: #8f6ec7; --pink: #ef92a7; --brown: #9b6842;
+      --grey: #a6a6a0; --black: #1f1b17; --white: #fff9e8;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 84% 12%, rgba(98, 198, 199, 0.18), transparent 34%),
+        radial-gradient(circle at 18% 86%, rgba(232, 88, 66, 0.16), transparent 36%),
+        #030306;
+      letter-spacing: 0;
+    }
+
+    button, input { font: inherit; }
+
+    /* 左側主視覺：融合暗色漸層與你的 hero.jpg */
+    .hero {
+      min-height: 100vh; display: grid;
+      grid-template-columns: minmax(320px, 0.72fr) minmax(420px, 1.28fr);
+      background-image:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.68) 50%, rgba(0, 0, 0, 0.9) 100%),
+        url('assets/images/hero.jpg');
+      background-size: cover, cover;
+      background-position: center, center;
+      background-repeat: no-repeat;
+    }
+
+    .brand {
+      position: relative; align-self: start; padding: 54px 28px;
+      color: #ffffff; text-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+    }
+
+    .brand h1 {
+      margin: 0 0 10px; max-width: 580px;
+      font-family: Impact, "Arial Black", "Microsoft JhengHei", sans-serif;
+      font-size: 64px; font-weight: 900; line-height: 0.98;
+      text-transform: uppercase; transform: rotate(-3deg);
+    }
+
+    .brand p {
+      margin: 0; max-width: 480px; padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
+      color: #f7f7f7; background: rgba(0, 0, 0, 0.52);
+      backdrop-filter: blur(10px); font-size: 16px; font-weight: 800; line-height: 1.65;
+    }
+
+    .quiz-panel { align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 28px; }
+    
+    .app {
+      position: relative; width: min(100%, 780px); max-height: calc(100vh - 56px); overflow: auto;
+      border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
+      background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(18px);
+    }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px;
+      padding: 18px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      background:
+        linear-gradient(rgba(12, 13, 20, 0.95), rgba(12, 13, 20, 0.95)),
+        linear-gradient(90deg, rgba(232, 88, 66, 0.14), rgba(98, 198, 199, 0.14), rgba(143, 110, 199, 0.14));
+    }
+
+    .mark { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 900; }
+    .mini-palette { display: grid; grid-template-columns: repeat(4, 9px); gap: 3px; flex: 0 0 auto; }
+    .mini-palette span, .swatch { display: inline-block; border: 1px solid rgba(255, 255, 255, 0.28); }
+    .mini-palette span { width: 9px; height: 9px; }
+    
+    .progress { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; white-space: nowrap; }
+    .track { width: 132px; height: 12px; overflow: hidden; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.08); }
+    .track span { display: block; height: 100%; width: 20%; background: linear-gradient(90deg, var(--red), var(--yellow), var(--turquoise), var(--purple)); transition: width 0.3s ease; }
+    
+    main { padding: 20px; }
+    
+    .question-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; color: #ffffff; font-size: 14px; font-weight: 800; }
+    .pill { border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 99px; padding: 4px 10px; color: #030306; background: #ffffff; }
+    
+    .question h2 { margin: 0 0 14px; font-size: 25px; line-height: 1.42; color: #ffffff; text-transform: uppercase; }
+    .question-text { margin: 0 0 18px; font-size: 16px; line-height: 1.78; white-space: pre-line; background: rgba(255, 255, 255, 0.08); border-radius: var(--radius); padding: 12px; color: #f1f3f7; }
+    
+    .options { display: grid; gap: 10px; }
+    .option {
+      width: 100%; min-height: 72px; display: grid; grid-template-columns: 42px 1fr; gap: 12px; align-items: center; padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--radius); color: var(--ink);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05)),
+        linear-gradient(90deg, rgba(232, 88, 66, 0.12), rgba(98, 198, 199, 0.08), rgba(143, 110, 199, 0.1));
+      cursor: pointer; text-align: left; transition: all 150ms ease;
+    }
+    .option:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.44); box-shadow: 0 0 28px rgba(98, 198, 199, 0.18); }
+    .option[aria-pressed="true"] { border-color: #ffffff; background: rgba(245, 207, 76, 0.16); box-shadow: 0 0 0 3px rgba(245, 207, 76, 0.22), 0 0 28px rgba(245, 207, 76, 0.18); }
+    
+    .option-number { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: #030306; background: #ffffff; font-weight: 900; }
+    .option strong { display: block; margin-bottom: 4px; font-size: 16px; line-height: 1.35; color: #ffffff; }
+    .option small { display: block; color: #eef2ff; font-size: 13px; line-height: 1.55; }
+    
+    .color-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .color-grid .option { grid-template-columns: 30px 1fr; min-height: 58px; }
+    .swatch { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.28); }
+    
+    .palette-stack { width: 38px; height: 38px; display: grid; grid-template-columns: repeat(2, 1fr); overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 50%; background: #050505; }
+    .palette-stack span { min-width: 0; min-height: 0; display: inline-block; }
+    
+    .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .ghost, .primary { min-height: 44px; border-radius: var(--radius); padding: 10px 16px; border: 1px solid rgba(255, 255, 255, 0.24); cursor: pointer; font-weight: 900; text-transform: uppercase; }
+    .ghost { color: var(--ink); background: rgba(255, 255, 255, 0.08); transition: 0.2s; }
+    .ghost:hover { background: rgba(255, 255, 255, 0.15); }
+    .primary { color: #030306; border-color: #ffffff; background: #ffffff; box-shadow: 0 0 24px rgba(255, 255, 255, 0.18); transition: 0.2s; }
+    .primary:hover { background: #f0f0f0; box-shadow: 0 0 32px rgba(255, 255, 255, 0.3); }
+    .primary:disabled { cursor: not-allowed; opacity: 0.42; }
+    
+    .result, .question { display: none; }
+    .result.active, .question.active { display: block; }
+    
+    /* 質感相框風格的結果卡片 */
+    .result-hero {
+      display: grid; gap: 14px; padding: 18px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
+      background:
+        linear-gradient(135deg, rgba(232, 88, 66, 0.18), rgba(90, 154, 89, 0.14) 35%, rgba(98, 198, 199, 0.14) 68%, rgba(239, 146, 167, 0.16)),
+        rgba(255, 255, 255, 0.06);
+    }
+    
+    .result-title { margin: 0; font-size: 34px; line-height: 1.12; color: #ffffff; font-family: Impact, "Arial Black", "Microsoft JhengHei", sans-serif; text-transform: uppercase; }
+    
+    .type-flags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .flag { border-radius: 99px; padding: 6px 10px; color: #030306; background: #ffffff; font-size: 13px; font-weight: 900; }
+    
+    .description { margin: 0; color: #f7f7f7; font-size: 16px; line-height: 1.8; white-space: pre-line; }
+    .motto { margin: 0; padding: 14px; border-left: 4px solid var(--turquoise); color: #f1f3f7; background: rgba(255, 255, 255, 0.07); line-height: 1.7; white-space: pre-line; font-style: italic; }
+    
+    .metrics { display: grid; gap: 12px; margin-top: 16px; margin-bottom: 32px; }
+    .metric { display: grid; grid-template-columns: 130px 1fr 58px; gap: 10px; align-items: center; }
+    .bar { height: 12px; overflow: hidden; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); }
+    .bar span { display: block; height: 100%; width: 50%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--yellow), var(--turquoise), var(--purple)); transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; background-position: center top, center top; }
+      .brand { min-height: 38vh; display: flex; flex-direction: column; justify-content: flex-start; padding: 28px 20px 72px; }
+      .brand h1 { font-size: 42px; }
+    }
+    @media (max-width: 620px) {
+      .brand h1 { font-size: 34px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .color-grid { grid-template-columns: repeat(2, 1fr); }
+      .actions { flex-direction: column-reverse; }
+      .ghost, .primary { width: 100%; }
+      .metric { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <div class="brand">
+      <h1>校園 SBTI 心理測驗</h1>
+      <p>結合色彩心理學與機器學習演算法，用五個真實的校園瞬間，測出你的大數據人格與靈魂底色。</p>
+    </div>
+
+    <div class="quiz-panel">
+      <div class="app">
+        <div class="topbar">
+          <div class="mark">
+            <div class="mini-palette">
+              <span style="background: var(--black)"></span><span style="background: var(--blue)"></span>
+              <span style="background: var(--brown)"></span><span style="background: var(--green)"></span>
+              <span style="background: var(--grey)"></span><span style="background: var(--orange)"></span>
+              <span style="background: var(--pink)"></span><span style="background: var(--purple)"></span>
+              <span style="background: var(--red)"></span><span style="background: var(--turquoise)"></span>
+              <span style="background: var(--white)"></span><span style="background: var(--yellow)"></span>
+            </div>
+            <span>V/S/R/A 數據解耦引擎</span>
+          </div>
+          <div class="progress">
+            <span id="progressText">第 1 / 5 題</span>
+            <div class="track"><span id="progressBar"></span></div>
+          </div>
+        </div>
+
+        <main>
+          <section id="questionView" class="question active"></section>
+          <section id="resultView" class="result"></section>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // ==========================================
+    // 1. 核心大數據矩陣 (保留原 index 的 Model 1 權重)
+    // ==========================================
+    const MODEL1_COLOR_MATRIX = {
+        black: [1.2, 4.8, 1.5, 4.2], blue: [1.5, 4.5, 4.0, 1.1],
+        brown: [1.4, 3.9, 4.0, 2.4], green: [2.2, 4.2, 4.5, 0.9],
+        grey: [1.1, 4.0, 1.2, 3.0], orange: [4.3, 1.6, 3.1, 2.8],
+        pink: [3.5, 2.1, 4.5, 1.5], purple: [2.8, 2.5, 3.9, 3.1],
+        red: [4.8, 1.2, 3.0, 4.5], turquoise: [2.5, 3.5, 3.6, 1.3],
+        white: [2.0, 4.1, 2.9, 0.8], yellow: [4.5, 1.9, 3.2, 2.5]
+    };
+
+    const COLORS = [
+      ["black", "黑色", "Black", "#121212"], ["blue", "藍色", "Blue", "#3867d6"],
+      ["brown", "棕色", "Brown", "#806044"], ["grey", "灰色", "Grey", "#8c8f94"],
+      ["white", "白色", "White", "#f7f2e8"], ["turquoise", "青色", "Turquoise", "#13a6a1"],
+      ["red", "紅色", "Red", "#d9363e"], ["orange", "橘色", "Orange", "#f07a24"],
+      ["yellow", "黃色", "Yellow", "#f2c94c"], ["green", "綠色", "Green", "#2f8f5b"],
+      ["pink", "粉色", "Pink", "#e85d9e"], ["purple", "紫色", "Purple", "#7d4cc2"]
+    ];
+
+    const DIMENSION_LABELS = { V: "Vitality 活力", S: "Stability 穩定", R: "Resonance 共鳴", A: "Alert 警覺" };
+    const DIMENSION_SOURCE_LABELS = { V: "Q1 遲到危機", S: "Q4 療癒空間", R: "Q5 牽繩配色", A: "Q2+Q3 大腦底色" };
+
+    // ==========================================
+    // 2. 心理測驗題目區 (保留原 index 的題目與邏輯)
+    // ==========================================
+    const QUESTIONS = [
+      {
+        title: "早 9 實驗課的遲到死線",
+        text: "早 9 的實驗課，遲到 15 分鐘學期總平均直接扣 20 分。你在早上 8:30 壓掉了鬧鐘，以為自己游刃有餘，結果玩了一把「再睡 5 分鐘」的危險小遊戲賭輸了... 再次睜開眼已經是 9:10。在這準備衝出宿舍的崩潰瞬間，你會隨手抓什麼顏色的衣服套在身上？",
+        options: [
+          { label: "隱蔽低調的純黑與深灰", note: "只想當個沒有靈魂的透明人", points: { black: 3, grey: 3, blue: 1, white: 1 }, colors: ["black", "grey", "blue", "white"] },
+          { label: "腎上腺素爆發的亮黃與鮮橘", note: "準備極限百米衝刺", points: { yellow: 3, orange: 3, red: 1, turquoise: 1 }, colors: ["yellow", "orange", "red", "turquoise"] },
+          { label: "裝可憐求同情的奶茶棕與米白", note: "喚醒助教惻隱之心", points: { brown: 3, white: 3, pink: 1, green: 1 }, colors: ["brown", "white", "pink", "green"] },
+          { label: "故作鎮定的海軍藍與俐落白", note: "輸了成績但氣勢不能輸", points: { blue: 3, white: 3, black: 1, grey: 1 }, colors: ["blue", "white", "black", "grey"] }
+        ]
+      },
+      {
+        title: "中午 12 點的鎖定螢幕",
+        text: "中午 12 點，正午的陽光有些刺眼。當你按下電源鍵，螢幕亮起、但還沒解鎖的那一瞬間，映入眼簾的鎖定螢幕底色，是哪一種主色調？",
+        colorOnly: true
+      },
+      {
+        title: "凌晨三點的大腦重置色",
+        text: "凌晨三點，大腦幾乎要當機了。你決定把筆電闔上閉上雙眼。在這一片漆黑之中，如果大腦會自動召喚出一種「顏色」來幫你進行系統重置，直覺映入眼簾的是？",
+        colorOnly: true
+      },
+      {
+        title: "身心俱疲的療癒空間",
+        text: "連續幾週的期中考讓你電力耗盡。你獨自抵達神秘民宿，管家提供六個專屬療癒空間。憑直覺，身心俱疲的你最想走進哪一個？",
+        options: [
+          { label: "沉靜的林間小木屋", note: "聞得到木頭香，窗外有鳥鳴", points: { brown: 3, green: 3, grey: 1, white: 1 }, colors: ["brown", "green"] },
+          { label: "無邊際的星空露台", note: "仰望深邃夜空", points: { black: 3, blue: 3, purple: 1, turquoise: 1 }, colors: ["black", "blue"] },
+          { label: "充滿霧氣的極簡溫泉池", note: "灰白清水模，安靜得只剩水聲", points: { grey: 3, white: 3, black: 1, blue: 1 }, colors: ["grey", "white"] },
+          { label: "暖烘烘的午後玻璃溫室", note: "桌上有柑橘與熱茶", points: { orange: 3, yellow: 3, brown: 1, green: 1 }, colors: ["orange", "yellow"] },
+          { label: "魔幻霓虹的微醺地下酒吧", note: "爵士樂與夢幻調酒", points: { pink: 3, purple: 3, red: 1, orange: 1 }, colors: ["pink", "purple"] },
+          { label: "充滿生命力的珊瑚礁潛水", note: "色彩斑斕的魚群與珊瑚", points: { red: 3, turquoise: 3, pink: 1, yellow: 1 }, colors: ["red", "turquoise"] }
+        ]
+      },
+      {
+        title: "柴犬今晚的牽繩配色",
+        text: "晚上回家遛狗，你會幫柴犬選擇什麼顏色的牽繩組合？",
+        options: [
+          { label: "藍 ＋ 黃：經典高對比組合", note: "充滿活力卻不失沉穩", points: { blue: 3, yellow: 3, turquoise: 1, orange: 1 }, colors: ["blue", "yellow"] },
+          { label: "黑 ＋ 紅：強烈個性組合", note: "代表極致專注與牽絆", points: { black: 3, red: 3, grey: 1, purple: 1 }, colors: ["black", "red"] },
+          { label: "綠 ＋ 青：初夏森林組合", note: "溫柔療癒的大自然氣息", points: { green: 3, turquoise: 3, blue: 1, white: 1 }, colors: ["green", "turquoise"] },
+          { label: "粉 ＋ 白：棉花糖軟萌組合", note: "充滿愛與純潔感", points: { pink: 3, white: 3, red: 1, yellow: 1 }, colors: ["pink", "white"] },
+          { label: "棕 ＋ 橘：大地秋意組合", note: "溫暖復古像拿鐵與柑橘", points: { brown: 3, orange: 3, green: 1, yellow: 1 }, colors: ["brown", "orange"] },
+          { label: "紫 ＋ 灰：神祕極簡組合", note: "低調沉靜帶有魔幻感", points: { purple: 3, grey: 3, black: 1, pink: 1 }, colors: ["purple", "grey"] }
+        ]
+      }
+    ];
+
+    // ==========================================
+    // 3. 16 型人格資料庫 (結合 index 的圖片與 index1 的生動文案)
+    // ==========================================
+    const PERSONAS = {
+      HHHH: { 
+        name: "黑皮體育生 (HAPPY)", image: "assets/images/happy.jpg", 
+        motto: "真的覺得憑甚麼歧視文組？理組有比較驕傲嗎？需要微波嗎？冰美式好囉。", 
+        description: "這是一個精神分裂的究極完全體。他的內心小劇場早就把對方祖宗十八代都問候了一遍，大腦瘋狂運轉著「憑甚麼歧視文組」、「理組有比較驕傲嗎」，甚至連「發票要印嗎」、「需要微波嗎」這種日常對話都能讓他內心燃起熊熊怒火。但最可怕的是，當他心裡正在對你進行降維打擊的同時，他的臉上居然能無縫切換出陽光笑容。" 
+      },
+      HHHL: { 
+        name: "香蕉葛葛 (BananaGG)", image: "assets/images/bananagg.jpg", 
+        motto: "我來到一個島，它叫卡加布列島。有隻身穿七彩衣的鳥，對著我微笑。la la la，大家要跟我一起唱。", 
+        description: "這傢伙的大腦皮層大概有一半是由砂糖和粉紅泡泡組成的。別人的世界是絕地求生，他的世界是一座名叫「卡加布列島」的歡樂新手村。就算天塌下來，他也會覺得是天空在給他蓋被子。當你正因為生活破爛不堪而崩潰邊緣時，他會用一種純潔無瑕的眼神看著你，拉著你的手說大家要一起唱！" 
+      },
+      HHLH: { 
+        name: "王ADEN (ADEN)", image: "assets/images/aden.jpg", 
+        motto: "因為下雨的關係，我已經前面沒有大跳了。原本在最後一首的時候打算大跳，但同學衝上去，然後我被影響到了。", 
+        description: "嚴重的主角光環妄想症末期患者。對他來說，整個地球的自轉都是為了配合他的 C 位出道。他滿腦子只想著要在最後一首歌的時候來個驚天地泣鬼神的「大跳」，遇到同學衝上台，他的情緒會瞬間原地爆炸，覺得全世界都在針對他。" 
+      },
+      HHLL: { 
+        name: "芒果醬 (MangoJump)", image: "assets/images/mangojump.jpg", 
+        motto: "喔喔喔愛，有你的將來我對你的感情我講不出來 在這個風風雨雨的世界 你敢會嫌棄，我騎摩托車", 
+        description: "完全把現實生活當成廉價熱血青春電影在演的無腦浪漫派。在他的宇宙觀裡，金錢、地位、未來規劃通通都是狗屁，只要有「喔喔喔愛」，他就能靠光合作用活下去。他可以口袋裡只剩一百塊，依然能在紅綠燈前深情款款地對你說：「我對你的感情我要講出來」。" 
+      },
+      HLHH: { 
+        name: "阿志 (seventeen)", image: "assets/images/seventeen.jpg", 
+        motto: "愛我沒結果，除非花手比過我。一聲兄弟，一生兄弟。當我穿上西裝，我跟你講道理；當我脫下西裝，我就是道理。", 
+        description: "這是一尊行動的義氣發電機，荷爾蒙與中二病的完美結晶。他以為自己穿上西裝就是道理，脫下西裝還是道理；走路要扶牆，因為上了他的床。他動不動就把「110帶我走，119扛你走」掛在嘴邊，搞得像隨時要去火拚，但實際上可能只是去巷口買包科學麵。" 
+      },
+      HLHL: { 
+        name: "孟寶 (Meng)", image: "assets/images/meng.jpg", 
+        motto: "崴寶送了好多禮物給孟寶，但孟寶很糟糕，只準備了這首歌想唱給崴寶聽。崴崴孟孟一起去日本，厲害崴孟，讓旅途順暢無阻。", 
+        description: "你是個一旦談起戀愛就會完全融化成一灘糖水的極度依戀者。你的世界充滿了紀念日與粉紅泡泡，情緒起伏完全取決於另一半的關注度。雖然偶爾會不受控地化身無理取鬧的「怪怪寶」，但只要你的專屬避風港一出現，你就能立刻恢復成最甜膩的可愛生物。" 
+      },
+      HLLH: { 
+        name: "過動吉吉 (ADHD)", image: "assets/images/adhd.jpg", 
+        motto: "我第一次去夜店唯一一次，只進去了3分鐘。那裡沒有書，沒有考卷，沒有老師，太嘈雜了。我只想好好學習，考取功名，報效國家。", 
+        description: "你的靈魂是一隻極度敏感且無法忍受噪音的暴躁吉娃娃。你對於那些沒有書、沒有考卷的娛樂場所感到生理上的極度不適，任何混亂與嘈雜都會讓你瞬間崩潰，只想立刻逃回家考取功名。你的高敏感防禦機制，就是用讀書來隔絕這個吵鬧的世界。" 
+      },
+      HLLL: { 
+        name: "阿公遛妻 (sixseven)", image: "assets/images/sixseven.gif", 
+        motto: "欸 six seven\nsix！six！seven\n阿公阿公 67", 
+        description: "這傢伙已經脫離了碳基生物的思考範疇，完全是個被網路迷因奪舍的行屍走肉。你跟他講道理，他回你「欸 six seven」；你問他今天吃什麼，他大喊「阿公阿公 67」。他的大腦完全沒有任何邏輯過濾系統，隨時隨地都在播放這首毫無意義的洗腦神曲。" 
+      },
+      LHHH: { 
+        name: "黃大謙 (BigYellow)", image: "assets/images/bigyellow.jpg", 
+        motto: "我買了一個45美元的燈", 
+        description: "一個把厭世當成呼吸一樣自然的冷面笑匠。當別人都在網路上炫耀跑車名錶時，他可以用最平淡、最無所謂、甚至帶點嫌棄的死魚眼，看著鏡頭說：「我買了一個45美元的燈」。他不需要任何浮誇的動作，只要用那種看透紅塵的超然姿態，就能把世界嘲諷得體無完膚。" 
+      },
+      LHHL: { 
+        name: "曾國城 (Chainsmoker)", image: "assets/images/chainsmoker.jpg", 
+        motto: "如果當初曾國城願意多花一點時間，但沒有。他選擇在古蹟裡抽菸，就為了那短暫的快樂。這一切的崩塌，是從他點燃那根菸開始的。", 
+        description: "這是把胡說八道昇華成一門哲學的通靈大師。他彷彿擁有一雙能看穿平行宇宙的法眼，能把「在古蹟裡抽菸」這種行為，硬生生包裝成一場為了短暫快樂而引發的世紀大災難。你聽他講話會覺得自己智商被摩擦，但他那副深沉的嘴臉又讓你忍不住想問他大盤怎麼走。" 
+      },
+      LHLH: { 
+        name: "崴寶 (Wei)", image: "assets/images/wei.jpg", 
+        motto: "這個草莓奶油裡面還有顆粒！嗯嗯～他的顆粒好好吃喔。太好了，崴寶也想吃一下草莓顆粒。", 
+        description: "細節控裡的重度強迫症患者，對食物有著令人發毛的變態執著。一般人吃草莓奶油就是吃草莓奶油，但他不行，他不僅要挖出裡面的「顆粒」，還要用一種近乎高潮的語氣讚嘆：「嗯嗯～他的顆粒好好吃喔」，最後還要厚顏無恥地加上一句「崴寶也想吃」。" 
+      },
+      LHLL: { 
+        name: "盧廣仲 (CrowdLu)", image: "assets/images/crowdlu.jpg", 
+        motto: "為什麼我會在台上 就是因為我買不到票 yeah", 
+        description: "這傢伙的廢柴程度已經達到了「天人合一」的最高境界。你問他為什麼會站在這個閃閃發光的舞台上，是不是有什麼偉大的夢想？他只會推一下眼鏡，用最無辜、最沒有靈魂的聲音告訴你：「就是因為我買不到票 yeah」。他的人生沒有規劃、沒有野心，一切順水推舟。" 
+      },
+      LLHH: { 
+        name: "周杰倫 (JayChou)", image: "assets/images/jaychou.jpg", 
+        motto: "哎呦不錯喔", 
+        description: "裝逼界無人能敵的祖師爺。他這輩子大概有 80% 的詞彙量都被封印了，不管遇到多大的場面、看到多扯的事情，他永遠只會嘴角微揚，給出一句極度敷衍卻又莫名充滿霸氣的：「哎呦不錯喔」。他自帶一種「我早就看穿一切，但我懶得跟你解釋」的高級氣場。" 
+      },
+      LLHL: { 
+        name: "統神 (GodTone)", image: "assets/images/godtone.jpg", 
+        motto: "我端火鍋摔倒，我一步都沒有退欸，啊這樣算我輸喔？50萬拿去啦 乞丐", 
+        description: "嘴硬的終極權威，大腦內建一套絕對無敵的防禦機制。就算他在眾目睽睽之下端著火鍋摔個四腳朝天，連湯帶肉砸在自己臉上，他站起來的第一句話絕對是狂吼：「我一步都沒有退欸，啊這樣算我輸喔？」他不需要客觀事實，因為他自己就是真理本理。" 
+      },
+      LLLH: { 
+        name: "章魚哥 (Octupus)", image: "assets/images/octupus.jpg", 
+        motto: "不管你要我做什麼工作，我都不會做的。我這輩子只在乎六點能不能準時下班。我陪你哈啦，你會給我加薪嗎？", 
+        description: "這是已經徹底看破資本主義謊言的極致社畜。他的靈魂早就被工作榨乾，眼神裡除了死灰還是死灰。你跟他談夢想、談團隊合作？他只會冷冷地問：「我陪你哈啦，你會給我加薪嗎？」他的人生最高指導原則，就是準時下班，任何攔住他的人都是殺父仇人。" 
+      },
+      LLLL: { 
+        name: "快俠 (Flash)", image: "assets/images/flash.jpg", 
+        motto: "哈......哈......哈......哈......", 
+        description: "這位老兄的時間流速跟我們這群凡人完全不在同一個次元。當這個世界已經快轉到了 5G 時代，他的靈魂還停留在撥接上網。你講一個笑話，他可能等到明年清明節才會突然笑出來。他不是在擺爛，他是真的已經把「慢」昇華成了一種堅不可摧的物理防禦盾牌。" 
+      }
+    };
+
+    // ==========================================
+    // 4. 系統運作核心
+    // ==========================================
+    const answers = new Array(QUESTIONS.length).fill(null);
+    let currentQuestion = 0;
+    const questionView = document.getElementById("questionView");
+    const resultView = document.getElementById("resultView");
+    const progressText = document.getElementById("progressText");
+    const progressBar = document.getElementById("progressBar");
+
+    const COLOR_LOOKUP = Object.fromEntries(COLORS.map(([key, zh, en, hex]) => [key, { key, zh, en, hex }]));
+
+    function getScore(pointsObj, dimIndex) {
+        let sum = 0;
+        for (let color in pointsObj) {
+            sum += pointsObj[color] * MODEL1_COLOR_MATRIX[color][dimIndex];
+        }
+        return sum;
+    }
+
+    function getMedian(arr) {
+        const sorted = [...arr].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    function calculateBaselines() {
+        const q1_v = QUESTIONS[0].options.map(opt => getScore(opt.points, 0));
+        const q4_s = QUESTIONS[3].options.map(opt => getScore(opt.points, 1));
+        const q5_r = QUESTIONS[4].options.map(opt => getScore(opt.points, 2));
+        const q2_a = COLORS.map(([key]) => getScore({[key]: 8}, 3));
+        const q3_a = COLORS.map(([key]) => getScore({[key]: 8}, 3));
+        const q23_a = [];
+        q2_a.forEach(a2 => q3_a.forEach(a3 => q23_a.push(a2 + a3)));
+
+        return { V: getMedian(q1_v), S: getMedian(q4_s), R: getMedian(q5_r), A: getMedian(q23_a) };
+    }
+    const BASELINES = calculateBaselines();
+
+    function buildColorOptions() {
+      return COLORS.map(([key, zh, en]) => ({
+        label: `${zh} (${en})`, note: "直覺第一眼選到它。",
+        colorKey: key, points: { [key]: 8 }, colors: [key]
+      }));
+    }
+
+    function colorPairIcon(colors) {
+      if (!colors || colors.length === 0) return "";
+      const blocks = colors.slice(0, 4).map((color) => `<span style="background:${COLOR_LOOKUP[color].hex}"></span>`).join("");
+      return `<span class="palette-stack" aria-hidden="true">${blocks}</span>`;
+    }
+
+    function renderQuestion() {
+      const question = QUESTIONS[currentQuestion];
+      const options = question.colorOnly ? buildColorOptions() : question.options;
+      const selected = answers[currentQuestion];
+      const optionClass = question.colorOnly ? "options color-grid" : "options";
+
+      progressText.textContent = `第 ${currentQuestion + 1} / ${QUESTIONS.length} 題`;
+      progressBar.style.width = `${((currentQuestion + 1) / QUESTIONS.length) * 100}%`;
+
+      questionView.innerHTML = `
+        <div class="question-kicker"><span class="pill">Question ${currentQuestion + 1}</span><span>用直覺選，不要跟它耗太久</span></div>
+        <h2>${question.title}</h2>
+        <p class="question-text">${question.text}</p>
+        <div class="${optionClass}" id="options"></div>
+        <div class="actions">
+          <button class="ghost" type="button" id="backBtn">${currentQuestion === 0 ? "重新開始" : "上一題"}</button>
+          <button class="primary" type="button" id="nextBtn" ${selected === null ? "disabled" : ""}>${currentQuestion === QUESTIONS.length - 1 ? "結算大數據人格" : "下一題"}</button>
+        </div>
+      `;
+
+      const optionRoot = document.getElementById("options");
+      options.forEach((option, index) => {
+        const button = document.createElement("button");
+        button.className = "option"; button.type = "button";
+        button.setAttribute("aria-pressed", selected === index ? "true" : "false");
+
+        const icon = option.colorKey 
+          ? `<span class="swatch" style="background:${COLOR_LOOKUP[option.colorKey].hex}"></span>`
+          : colorPairIcon(option.colors) || `<span class="option-number">${String.fromCharCode(65 + index)}</span>`;
+
+        button.innerHTML = `${icon}<span><strong>${option.label}</strong><small>${option.note}</small></span>`;
+        button.addEventListener("click", () => { answers[currentQuestion] = index; renderQuestion(); });
+        optionRoot.appendChild(button);
+      });
+
+      document.getElementById("backBtn").addEventListener("click", () => {
+        if (currentQuestion === 0) answers.fill(null); else currentQuestion -= 1;
+        renderQuestion();
+      });
+      document.getElementById("nextBtn").addEventListener("click", () => {
+        if (answers[currentQuestion] === null) return;
+        if (currentQuestion < QUESTIONS.length - 1) { currentQuestion += 1; renderQuestion(); } 
+        else { renderResult(); }
+      });
+    }
+
+    function renderResult() {
+      // 擷取玩家選項
+      const q1_pts = QUESTIONS[0].options[answers[0]].points;
+      const q2_pts = buildColorOptions()[answers[1]].points;
+      const q3_pts = buildColorOptions()[answers[2]].points;
+      const q4_pts = QUESTIONS[3].options[answers[3]].points;
+      const q5_pts = QUESTIONS[4].options[answers[4]].points;
+
+      // 獨立特徵解耦計算
+      const user_scores = {
+          V: getScore(q1_pts, 0),
+          S: getScore(q4_pts, 1),
+          R: getScore(q5_pts, 2),
+          A: getScore(q2_pts, 3) + getScore(q3_pts, 3)
+      };
+
+      // 判定 H / L
+      const codeArr = ["V", "S", "R", "A"].map(dim => user_scores[dim] >= BASELINES[dim] ? "H" : "L");
+      const finalCode = codeArr.join("");
+      const persona = PERSONAS[finalCode];
+
+      questionView.classList.remove("active");
+      resultView.classList.add("active");
+      progressText.textContent = "數據分析完成";
+      progressBar.style.width = "100%";
+
+      // 生成能量條 HTML
+      const metricsHtml = ["V", "S", "R", "A"].map((dim) => {
+        const percent = user_scores[dim] >= BASELINES[dim] ? Math.min(100, 50 + ((user_scores[dim] - BASELINES[dim]) * 15)) : Math.max(5, 50 - ((BASELINES[dim] - user_scores[dim]) * 15));
+        return `
+          <div class="metric">
+            <strong>${DIMENSION_LABELS[dim]}</strong>
+            <div class="bar" aria-hidden="true"><span style="width:${percent}%"></span></div>
+            <span><b>${user_scores[dim] >= BASELINES[dim] ? "H" : "L"}</b> <span style="color:var(--muted); font-size:12px">(${DIMENSION_SOURCE_LABELS[dim]})</span></span>
+          </div>
+        `;
+      }).join("");
+
+      // 渲染最終畫面 (套用暗色質感的照片相框)
+      resultView.innerHTML = `
+        <div class="result-hero">
+          <div class="question-kicker">
+            <span class="pill">大數據編碼 ${finalCode}</span>
+            <span>V / S / R / A</span>
+          </div>
+          <h2 class="result-title">【${persona.name}】</h2>
+          
+          ${persona.image ? `<div style="margin: 18px 0; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); padding: 12px; text-align: center;"><img src="${persona.image}" style="max-width: 100%; height: 260px; object-fit: contain;"></div>` : ''}
+          
+          <div class="type-flags">
+            ${["V", "S", "R", "A"].map((dim, i) => `<span class="flag">${DIMENSION_LABELS[dim]} ${codeArr[i]}</span>`).join("")}
+          </div>
+          <p class="description">${persona.description}</p>
+          <p class="motto">"${persona.motto}"</p>
+        </div>
+        <div class="metrics">
+            <h3 style="margin:0; font-size:16px; color:#ffffff;">📊 你的情緒大數據剖析</h3>
+            ${metricsHtml}
+        </div>
+        <div class="actions">
+          <button class="ghost" type="button" id="restartBtn">再測一次</button>
+        </div>
+      `;
+
+      document.getElementById("restartBtn").addEventListener("click", () => {
+        answers.fill(null); currentQuestion = 0;
+        resultView.classList.remove("active"); questionView.classList.add("active");
+        renderQuestion();
+      });
+    }
+
+    renderQuestion();
+  </script>
+</body>
+</html>
+
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>校園 SBTI 心理測驗</title>
+  <style>
+    /* ========== 暗色質感 CSS 樣式與排版 (來自 index1) ========== */
+    :root {
+      --ink: #f7f7f7; --muted: #eef2ff; --paper: #08080b;
+      --line: rgba(255, 255, 255, 0.16); --panel: rgba(10, 11, 17, 0.82);
+      --shadow: 0 26px 70px rgba(0, 0, 0, 0.55), 0 0 42px rgba(98, 198, 199, 0.12);
+      --radius: 8px;
+      --red: #e85842; --orange: #f28b3c; --yellow: #f5cf4c;
+      --green: #5a9a59; --turquoise: #62c6c7; --blue: #4d88d6;
+      --purple: #8f6ec7; --pink: #ef92a7; --brown: #9b6842;
+      --grey: #a6a6a0; --black: #1f1b17; --white: #fff9e8;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 84% 12%, rgba(98, 198, 199, 0.18), transparent 34%),
+        radial-gradient(circle at 18% 86%, rgba(232, 88, 66, 0.16), transparent 36%),
+        #030306;
+      letter-spacing: 0;
+    }
+
+    button, input { font: inherit; }
+
+    /* 左側主視覺：融合暗色漸層與你的 hero.jpg */
+    .hero {
+      min-height: 100vh; display: grid;
+      grid-template-columns: minmax(320px, 0.72fr) minmax(420px, 1.28fr);
+      background-image:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.68) 50%, rgba(0, 0, 0, 0.9) 100%),
+        url('assets/images/hero.jpg');
+      background-size: cover, cover;
+      background-position: center, center;
+      background-repeat: no-repeat;
+    }
+
+    .brand {
+      position: relative; align-self: start; padding: 54px 28px;
+      color: #ffffff; text-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+    }
+
+    /* 發光幾何圖形 (Brand) */
+    .brand::after {
+      content: ""; position: absolute; width: 78px; height: 78px;
+      left: 32px; top: 222px; border-radius: 42% 58% 48% 52%;
+      background:
+        radial-gradient(circle at 34% 36%, #050505 0 5px, transparent 6px),
+        radial-gradient(circle at 62% 36%, #050505 0 5px, transparent 6px),
+        radial-gradient(circle at 49% 58%, #ffffff 0 8px, transparent 9px),
+        var(--yellow);
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      box-shadow: 0 0 26px rgba(245, 207, 76, 0.48);
+      transform: rotate(-7deg);
+    }
+
+    .brand h1 {
+      margin: 0 0 10px; max-width: 580px;
+      font-family: Impact, "Arial Black", "Microsoft JhengHei", sans-serif;
+      font-size: 64px; font-weight: 900; line-height: 0.98;
+      text-transform: uppercase; transform: rotate(-3deg);
+    }
+
+    .brand p {
+      margin: 0; max-width: 480px; padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
+      color: #f7f7f7; background: rgba(0, 0, 0, 0.52);
+      backdrop-filter: blur(10px); font-size: 16px; font-weight: 800; line-height: 1.65;
+    }
+
+    .quiz-panel { align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 28px; }
+    
+    .app {
+      position: relative; width: min(100%, 780px); max-height: calc(100vh - 56px); overflow: auto;
+      border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
+      background: var(--panel); box-shadow: var(--shadow); backdrop-filter: blur(18px);
+    }
+
+    /* 發光幾何圖形 (App Blob) */
+    .app::before, .app::after {
+      content: ""; position: absolute; z-index: 3; width: 54px; height: 54px; pointer-events: none;
+      border: 2px solid rgba(255, 255, 255, 0.22); box-shadow: 0 0 22px rgba(98, 198, 199, 0.34);
+    }
+    .app::before {
+      right: 16px; top: 78px; border-radius: 50% 45% 55% 48%;
+      background:
+        radial-gradient(circle at 34% 38%, #050505 0 4px, transparent 5px),
+        radial-gradient(circle at 62% 38%, #050505 0 4px, transparent 5px),
+        radial-gradient(circle at 50% 60%, #ffffff 0 9px, transparent 10px), var(--turquoise);
+      transform: rotate(8deg);
+    }
+    .app::after {
+      left: 18px; bottom: 18px; border-radius: 38% 62% 45% 55%;
+      background:
+        radial-gradient(circle at 36% 38%, #050505 0 4px, transparent 5px),
+        radial-gradient(circle at 64% 38%, #050505 0 4px, transparent 5px),
+        radial-gradient(circle at 50% 61%, #ffffff 0 8px, transparent 9px), var(--pink);
+      transform: rotate(-10deg);
+    }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 18px;
+      padding: 18px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      background:
+        linear-gradient(rgba(12, 13, 20, 0.95), rgba(12, 13, 20, 0.95)),
+        linear-gradient(90deg, rgba(232, 88, 66, 0.14), rgba(98, 198, 199, 0.14), rgba(143, 110, 199, 0.14));
+    }
+
+    .mark { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 900; }
+    .mini-palette { display: grid; grid-template-columns: repeat(4, 9px); gap: 3px; flex: 0 0 auto; }
+    .mini-palette span, .swatch { display: inline-block; border: 1px solid rgba(255, 255, 255, 0.28); }
+    .mini-palette span { width: 9px; height: 9px; }
+    
+    .progress { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; white-space: nowrap; }
+    .track { width: 132px; height: 12px; overflow: hidden; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.08); }
+    .track span { display: block; height: 100%; width: 20%; background: linear-gradient(90deg, var(--red), var(--yellow), var(--turquoise), var(--purple)); transition: width 0.3s ease; }
+    
+    main { padding: 20px; }
+    
+    .question-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; color: #ffffff; font-size: 14px; font-weight: 800; }
+    .pill { border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 99px; padding: 4px 10px; color: #030306; background: #ffffff; }
+    
+    .question h2 { margin: 0 0 14px; font-size: 25px; line-height: 1.42; color: #ffffff; text-transform: uppercase; }
+    .question-text { margin: 0 0 18px; font-size: 16px; line-height: 1.78; white-space: pre-line; background: rgba(255, 255, 255, 0.08); border-radius: var(--radius); padding: 12px; color: #f1f3f7; }
+    
+    .options { display: grid; gap: 10px; }
+    .option {
+      width: 100%; min-height: 72px; display: grid; grid-template-columns: 42px 1fr; gap: 12px; align-items: center; padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--radius); color: var(--ink);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05)),
+        linear-gradient(90deg, rgba(232, 88, 66, 0.12), rgba(98, 198, 199, 0.08), rgba(143, 110, 199, 0.1));
+      cursor: pointer; text-align: left; transition: all 150ms ease;
+    }
+    .option:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.44); box-shadow: 0 0 28px rgba(98, 198, 199, 0.18); }
+    .option[aria-pressed="true"] { border-color: #ffffff; background: rgba(245, 207, 76, 0.16); box-shadow: 0 0 0 3px rgba(245, 207, 76, 0.22), 0 0 28px rgba(245, 207, 76, 0.18); }
+    
+    .option-number { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: #030306; background: #ffffff; font-weight: 900; }
+    .option strong { display: block; margin-bottom: 4px; font-size: 16px; line-height: 1.35; color: #ffffff; }
+    .option small { display: block; color: #eef2ff; font-size: 13px; line-height: 1.55; }
+    
+    .color-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .color-grid .option { grid-template-columns: 30px 1fr; min-height: 58px; }
+    .swatch { width: 26px; height: 26px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.28); }
+    
+    .palette-stack { width: 38px; height: 38px; display: grid; grid-template-columns: repeat(2, 1fr); overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 50%; background: #050505; }
+    .palette-stack span { min-width: 0; min-height: 0; display: inline-block; }
+    
+    .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .ghost, .primary { min-height: 44px; border-radius: var(--radius); padding: 10px 16px; border: 1px solid rgba(255, 255, 255, 0.24); cursor: pointer; font-weight: 900; text-transform: uppercase; }
+    .ghost { color: var(--ink); background: rgba(255, 255, 255, 0.08); transition: 0.2s; }
+    .ghost:hover { background: rgba(255, 255, 255, 0.15); }
+    .primary { color: #030306; border-color: #ffffff; background: #ffffff; box-shadow: 0 0 24px rgba(255, 255, 255, 0.18); transition: 0.2s; }
+    .primary:hover { background: #f0f0f0; box-shadow: 0 0 32px rgba(255, 255, 255, 0.3); }
+    .primary:disabled { cursor: not-allowed; opacity: 0.42; }
+    
+    .result, .question { display: none; }
+    .result.active, .question.active { display: block; }
+    
+    /* 質感相框風格的結果卡片 */
+    .result-hero {
+      display: grid; gap: 14px; padding: 18px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: var(--radius);
+      background:
+        linear-gradient(135deg, rgba(232, 88, 66, 0.18), rgba(90, 154, 89, 0.14) 35%, rgba(98, 198, 199, 0.14) 68%, rgba(239, 146, 167, 0.16)),
+        rgba(255, 255, 255, 0.06);
+    }
+    
+    .result-title { margin: 0; font-size: 34px; line-height: 1.12; color: #ffffff; font-family: Impact, "Arial Black", "Microsoft JhengHei", sans-serif; text-transform: uppercase; }
+    
+    .type-flags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .flag { border-radius: 99px; padding: 6px 10px; color: #030306; background: #ffffff; font-size: 13px; font-weight: 900; }
+    
+    .description { margin: 0; color: #f7f7f7; font-size: 16px; line-height: 1.8; white-space: pre-line; }
+    .motto { margin: 0; padding: 14px; border-left: 4px solid var(--turquoise); color: #f1f3f7; background: rgba(255, 255, 255, 0.07); line-height: 1.7; white-space: pre-line; font-style: italic; }
+    
+    .metrics { display: grid; gap: 12px; margin-top: 16px; margin-bottom: 32px; }
+    .metric { display: grid; grid-template-columns: 130px 1fr 58px; gap: 10px; align-items: center; }
+    .bar { height: 12px; overflow: hidden; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(255, 255, 255, 0.08); }
+    .bar span { display: block; height: 100%; width: 50%; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--yellow), var(--turquoise), var(--purple)); transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; background-position: center top, center top; }
+      .brand { min-height: 38vh; display: flex; flex-direction: column; justify-content: flex-start; padding: 28px 20px 72px; }
+      .brand h1 { font-size: 42px; }
+      .app::before, .app::after, .brand::after { display: none; }
+    }
+    @media (max-width: 620px) {
+      .brand h1 { font-size: 34px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .color-grid { grid-template-columns: repeat(2, 1fr); }
+      .actions { flex-direction: column-reverse; }
+      .ghost, .primary { width: 100%; }
+      .metric { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <div class="brand">
+      <h1>校園 SBTI 心理測驗</h1>
+      <p>結合色彩心理學與機器學習演算法，用五個真實的校園瞬間，測出你的大數據人格與靈魂底色。</p>
+    </div>
+
+    <div class="quiz-panel">
+      <div class="app">
+        <div class="topbar">
+          <div class="mark">
+            <div class="mini-palette">
+              <span style="background: var(--black)"></span><span style="background: var(--blue)"></span>
+              <span style="background: var(--brown)"></span><span style="background: var(--green)"></span>
+              <span style="background: var(--grey)"></span><span style="background: var(--orange)"></span>
+              <span style="background: var(--pink)"></span><span style="background: var(--purple)"></span>
+              <span style="background: var(--red)"></span><span style="background: var(--turquoise)"></span>
+              <span style="background: var(--white)"></span><span style="background: var(--yellow)"></span>
+            </div>
+            <span>V/S/R/A 數據解耦引擎</span>
+          </div>
+          <div class="progress">
+            <span id="progressText">第 1 / 5 題</span>
+            <div class="track"><span id="progressBar"></span></div>
+          </div>
+        </div>
+
+        <main>
+          <section id="questionView" class="question active"></section>
+          <section id="resultView" class="result"></section>
+        </main>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // ==========================================
+    // 1. 核心大數據矩陣 (保留原 index 的 Model 1 權重)
+    // ==========================================
+    const MODEL1_COLOR_MATRIX = {
+        black: [0.1561, 0.2815, 1.2825, 1.2854], blue: [0.7046, 0.9963, 0.4500, 0.1430],
+        brown: [0.1349, 0.2523, 0.4796, 0.5289], green: [0.9329, 0.9181, 0.1524, 0.2344],
+        grey: [0.1044, 0.2313, 1.1857, 0.4604], orange: [1.1481, 0.5428, 0.1397, 0.2081],
+        pink: [1.4019, 0.6664, 0.1154, 0.0870], purple: [0.6928, 0.6554, 0.3996, 0.2601],
+        red: [1.3358, 0.4869, 0.2971, 0.9091], turquoise: [0.9576, 0.8634, 0.1382, 0.0817],
+        white: [0.6105, 1.1301, 0.2377, 0.1326], yellow: [1.2555, 0.6491, 0.1878, 0.2600]
+    };
+
+    const COLORS = [
+      ["black", "黑色", "Black", "#121212"], ["blue", "藍色", "Blue", "#3867d6"],
+      ["brown", "棕色", "Brown", "#806044"], ["grey", "灰色", "Grey", "#8c8f94"],
+      ["white", "白色", "White", "#f7f2e8"], ["turquoise", "青色", "Turquoise", "#13a6a1"],
+      ["red", "紅色", "Red", "#d9363e"], ["orange", "橘色", "Orange", "#f07a24"],
+      ["yellow", "黃色", "Yellow", "#f2c94c"], ["green", "綠色", "Green", "#2f8f5b"],
+      ["pink", "粉色", "Pink", "#e85d9e"], ["purple", "紫色", "Purple", "#7d4cc2"]
+    ];
+
+    const DIMENSION_LABELS = { V: "Vitality 活力", S: "Stability 穩定", R: "Resonance 共鳴", A: "Alert 警覺" };
+    const DIMENSION_SOURCE_LABELS = { V: "Q1 遲到危機", S: "Q4 療癒空間", R: "Q5 牽繩配色", A: "Q2+Q3 大腦底色" };
+
+    // ==========================================
+    // 2. 心理測驗題目區 (保留原 index 的題目與邏輯)
+    // ==========================================
+    const QUESTIONS = [
+      {
+        title: "早 9 實驗課的遲到死線",
+        text: "早 9 的實驗課，遲到 15 分鐘學期總平均直接扣 20 分。你在早上 8:30 壓掉了鬧鐘，以為自己游刃有餘，結果玩了一把「再睡 5 分鐘」的危險小遊戲賭輸了... 再次睜開眼已經是 9:10。在這準備衝出宿舍的崩潰瞬間，你會隨手抓什麼顏色的衣服套在身上？",
+        options: [
+          { label: "隱蔽低調的純黑與深灰", note: "只想當個沒有靈魂的透明人", points: { black: 3, grey: 3, blue: 1, white: 1 }, colors: ["black", "grey", "blue", "white"] },
+          { label: "腎上腺素爆發的亮黃與鮮橘", note: "準備極限百米衝刺", points: { yellow: 3, orange: 3, red: 1, turquoise: 1 }, colors: ["yellow", "orange", "red", "turquoise"] },
+          { label: "裝可憐求同情的奶茶棕與米白", note: "喚醒助教惻隱之心", points: { brown: 3, white: 3, pink: 1, green: 1 }, colors: ["brown", "white", "pink", "green"] },
+          { label: "故作鎮定的海軍藍與俐落白", note: "輸了成績但氣勢不能輸", points: { blue: 3, white: 3, black: 1, grey: 1 }, colors: ["blue", "white", "black", "grey"] }
+        ]
+      },
+      {
+        title: "中午 12 點的鎖定螢幕",
+        text: "中午 12 點，正午的陽光有些刺眼。當你按下電源鍵，螢幕亮起、但還沒解鎖的那一瞬間，映入眼簾的鎖定螢幕底色，是哪一種主色調？",
+        colorOnly: true
+      },
+      {
+        title: "凌晨三點的大腦重置色",
+        text: "凌晨三點，大腦幾乎要當機了。你決定把筆電闔上閉上雙眼。在這一片漆黑之中，如果大腦會自動召喚出一種「顏色」來幫你進行系統重置，直覺映入眼簾的是？",
+        colorOnly: true
+      },
+      {
+        title: "身心俱疲的療癒空間",
+        text: "連續幾週的期中考讓你電力耗盡。你獨自抵達神秘民宿，管家提供六個專屬療癒空間。憑直覺，身心俱疲的你最想走進哪一個？",
+        options: [
+          { label: "沉靜的林間小木屋", note: "聞得到木頭香，窗外有鳥鳴", points: { brown: 3, green: 3, grey: 1, white: 1 }, colors: ["brown", "green"] },
+          { label: "無邊際的星空露台", note: "仰望深邃夜空", points: { black: 3, blue: 3, purple: 1, turquoise: 1 }, colors: ["black", "blue"] },
+          { label: "充滿霧氣的極簡溫泉池", note: "灰白清水模，安靜得只剩水聲", points: { grey: 3, white: 3, black: 1, blue: 1 }, colors: ["grey", "white"] },
+          { label: "暖烘烘的午後玻璃溫室", note: "桌上有柑橘與熱茶", points: { orange: 3, yellow: 3, brown: 1, green: 1 }, colors: ["orange", "yellow"] },
+          { label: "魔幻霓虹的微醺地下酒吧", note: "爵士樂與夢幻調酒", points: { pink: 3, purple: 3, red: 1, orange: 1 }, colors: ["pink", "purple"] },
+          { label: "充滿生命力的珊瑚礁潛水", note: "色彩斑斕的魚群與珊瑚", points: { red: 3, turquoise: 3, pink: 1, yellow: 1 }, colors: ["red", "turquoise"] }
+        ]
+      },
+      {
+        title: "柴犬今晚的牽繩配色",
+        text: "晚上回家遛狗，你會幫柴犬選擇什麼顏色的牽繩組合？",
+        options: [
+          { label: "藍 ＋ 黃：經典高對比組合", note: "充滿活力卻不失沉穩", points: { blue: 3, yellow: 3, turquoise: 1, orange: 1 }, colors: ["blue", "yellow"] },
+          { label: "黑 ＋ 紅：強烈個性組合", note: "代表極致專注與牽絆", points: { black: 3, red: 3, grey: 1, purple: 1 }, colors: ["black", "red"] },
+          { label: "綠 ＋ 青：初夏森林組合", note: "溫柔療癒的大自然氣息", points: { green: 3, turquoise: 3, blue: 1, white: 1 }, colors: ["green", "turquoise"] },
+          { label: "粉 ＋ 白：棉花糖軟萌組合", note: "充滿愛與純潔感", points: { pink: 3, white: 3, red: 1, yellow: 1 }, colors: ["pink", "white"] },
+          { label: "棕 ＋ 橘：大地秋意組合", note: "溫暖復古像拿鐵與柑橘", points: { brown: 3, orange: 3, green: 1, yellow: 1 }, colors: ["brown", "orange"] },
+          { label: "紫 ＋ 灰：神祕極簡組合", note: "低調沉靜帶有魔幻感", points: { purple: 3, grey: 3, black: 1, pink: 1 }, colors: ["purple", "grey"] }
+        ]
+      }
+    ];
+
+    // ==========================================
+    // 3. 16 型人格資料庫 (結合 index 的圖片與 index1 的生動文案)
+    // ==========================================
+    const PERSONAS = {
+      HHHH: { 
+        name: "黑皮體育生 (HAPPY)", image: "assets/images/happy.jpg", 
+        motto: "真的覺得憑甚麼歧視文組？理組有比較驕傲嗎？需要微波嗎？冰美式好囉。", 
+        description: "這是一個精神分裂的究極完全體。他的內心小劇場早就把對方祖宗十八代都問候了一遍，大腦瘋狂運轉著「憑甚麼歧視文組」、「理組有比較驕傲嗎」，甚至連「發票要印嗎」、「需要微波嗎」這種日常對話都能讓他內心燃起熊熊怒火。但最可怕的是，當他心裡正在對你進行降維打擊的同時，他的臉上居然能無縫切換出陽光笑容。" 
+      },
+      HHHL: { 
+        name: "香蕉葛葛 (BananaGG)", image: "assets/images/bananagg.jpg", 
+        motto: "我來到一個島，它叫卡加布列島。有隻身穿七彩衣的鳥，對著我微笑。la la la，大家要跟我一起唱。", 
+        description: "這傢伙的大腦皮層大概有一半是由砂糖和粉紅泡泡組成的。別人的世界是絕地求生，他的世界是一座名叫「卡加布列島」的歡樂新手村。就算天塌下來，他也會覺得是天空在給他蓋被子。當你正因為生活破爛不堪而崩潰邊緣時，他會用一種純潔無瑕的眼神看著你，拉著你的手說大家要一起唱！" 
+      },
+      HHLH: { 
+        name: "王ADEN (ADEN)", image: "assets/images/aden.jpg", 
+        motto: "因為下雨的關係，我已經前面沒有大跳了。原本在最後一首的時候打算大跳，但同學衝上去，然後我被影響到了。", 
+        description: "嚴重的主角光環妄想症末期患者。對他來說，整個地球的自轉都是為了配合他的 C 位出道。他滿腦子只想著要在最後一首歌的時候來個驚天地泣鬼神的「大跳」，遇到同學衝上台，他的情緒會瞬間原地爆炸，覺得全世界都在針對他。" 
+      },
+      HHLL: { 
+        name: "芒果醬 (MangoJump)", image: "assets/images/mangojump.jpg", 
+        motto: "喔喔喔愛，有你的將來我對你的感情我講不出來 在這個風風雨雨的世界 你敢會嫌棄，我騎摩托車", 
+        description: "完全把現實生活當成廉價熱血青春電影在演的無腦浪漫派。在他的宇宙觀裡，金錢、地位、未來規劃通通都是狗屁，只要有「喔喔喔愛」，他就能靠光合作用活下去。他可以口袋裡只剩一百塊，依然能在紅綠燈前深情款款地對你說：「我對你的感情我要講出來」。" 
+      },
+      HLHH: { 
+        name: "阿志 (seventeen)", image: "assets/images/seventeen.jpg", 
+        motto: "愛我沒結果，除非花手比過我。一聲兄弟，一生兄弟。當我穿上西裝，我跟你講道理；當我脫下西裝，我就是道理。", 
+        description: "這是一尊行動的義氣發電機，荷爾蒙與中二病的完美結晶。他以為自己穿上西裝就是道理，脫下西裝還是道理；走路要扶牆，因為上了他的床。他動不動就把「110帶我走，119扛你走」掛在嘴邊，搞得像隨時要去火拚，但實際上可能只是去巷口買包科學麵。" 
+      },
+      HLHL: { 
+        name: "孟寶 (Meng)", image: "assets/images/meng.jpg", 
+        motto: "崴寶送了好多禮物給孟寶，但孟寶很糟糕，只準備了這首歌想唱給崴寶聽。崴崴孟孟一起去日本，厲害崴孟，讓旅途順暢無阻。", 
+        description: "你是個一旦談起戀愛就會完全融化成一灘糖水的極度依戀者。你的世界充滿了紀念日與粉紅泡泡，情緒起伏完全取決於另一半的關注度。雖然偶爾會不受控地化身無理取鬧的「怪怪寶」，但只要你的專屬避風港一出現，你就能立刻恢復成最甜膩的可愛生物。" 
+      },
+      HLLH: { 
+        name: "過動吉吉 (ADHD)", image: "assets/images/adhd.jpg", 
+        motto: "我第一次去夜店唯一一次，只進去了3分鐘。那裡沒有書，沒有考卷，沒有老師，太嘈雜了。我只想好好學習，考取功名，報效國家。", 
+        description: "你的靈魂是一隻極度敏感且無法忍受噪音的暴躁吉娃娃。你對於那些沒有書、沒有考卷的娛樂場所感到生理上的極度不適，任何混亂與嘈雜都會讓你瞬間崩潰，只想立刻逃回家考取功名。你的高敏感防禦機制，就是用讀書來隔絕這個吵鬧的世界。" 
+      },
+      HLLL: { 
+        name: "阿公遛妻 (sixseven)", image: "assets/images/sixseven.gif", 
+        motto: "欸 six seven\nsix！six！seven\n阿公阿公 67", 
+        description: "這傢伙已經脫離了碳基生物的思考範疇，完全是個被網路迷因奪舍的行屍走肉。你跟他講道理，他回你「欸 six seven」；你問他今天吃什麼，他大喊「阿公阿公 67」。他的大腦完全沒有任何邏輯過濾系統，隨時隨地都在播放這首毫無意義的洗腦神曲。" 
+      },
+      LHHH: { 
+        name: "黃大謙 (BigYellow)", image: "assets/images/bigyellow.jpg", 
+        motto: "我買了一個45美元的燈", 
+        description: "一個把厭世當成呼吸一樣自然的冷面笑匠。當別人都在網路上炫耀跑車名錶時，他可以用最平淡、最無所謂、甚至帶點嫌棄的死魚眼，看著鏡頭說：「我買了一個45美元的燈」。他不需要任何浮誇的動作，只要用那種看透紅塵的超然姿態，就能把世界嘲諷得體無完膚。" 
+      },
+      LHHL: { 
+        name: "曾國城 (Chainsmoker)", image: "assets/images/chainsmoker.jpg", 
+        motto: "如果當初曾國城願意多花一點時間，但沒有。他選擇在古蹟裡抽菸，就為了那短暫的快樂。這一切的崩塌，是從他點燃那根菸開始的。", 
+        description: "這是把胡說八道昇華成一門哲學的通靈大師。他彷彿擁有一雙能看穿平行宇宙的法眼，能把「在古蹟裡抽菸」這種行為，硬生生包裝成一場為了短暫快樂而引發的世紀大災難。你聽他講話會覺得自己智商被摩擦，但他那副深沉的嘴臉又讓你忍不住想問他大盤怎麼走。" 
+      },
+      LHLH: { 
+        name: "崴寶 (Wei)", image: "assets/images/wei.jpg", 
+        motto: "這個草莓奶油裡面還有顆粒！嗯嗯～他的顆粒好好吃喔。太好了，崴寶也想吃一下草莓顆粒。", 
+        description: "細節控裡的重度強迫症患者，對食物有著令人發毛的變態執著。一般人吃草莓奶油就是吃草莓奶油，但他不行，他不僅要挖出裡面的「顆粒」，還要用一種近乎高潮的語氣讚嘆：「嗯嗯～他的顆粒好好吃喔」，最後還要厚顏無恥地加上一句「崴寶也想吃」。" 
+      },
+      LHLL: { 
+        name: "盧廣仲 (CrowdLu)", image: "assets/images/crowdlu.jpg", 
+        motto: "為什麼我會在台上 就是因為我買不到票 yeah", 
+        description: "這傢伙的廢柴程度已經達到了「天人合一」的最高境界。你問他為什麼會站在這個閃閃發光的舞台上，是不是有什麼偉大的夢想？他只會推一下眼鏡，用最無辜、最沒有靈魂的聲音告訴你：「就是因為我買不到票 yeah」。他的人生沒有規劃、沒有野心，一切順水推舟。" 
+      },
+      LLHH: { 
+        name: "周杰倫 (JayChou)", image: "assets/images/jaychou.jpg", 
+        motto: "哎呦不錯喔", 
+        description: "裝逼界無人能敵的祖師爺。他這輩子大概有 80% 的詞彙量都被封印了，不管遇到多大的場面、看到多扯的事情，他永遠只會嘴角微揚，給出一句極度敷衍卻又莫名充滿霸氣的：「哎呦不錯喔」。他自帶一種「我早就看穿一切，但我懶得跟你解釋」的高級氣場。" 
+      },
+      LLHL: { 
+        name: "統神 (GodTone)", image: "assets/images/godtone.jpg", 
+        motto: "我端火鍋摔倒，我一步都沒有退欸，啊這樣算我輸喔？50萬拿去啦 乞丐", 
+        description: "嘴硬的終極權威，大腦內建一套絕對無敵的防禦機制。就算他在眾目睽睽之下端著火鍋摔個四腳朝天，連湯帶肉砸在自己臉上，他站起來的第一句話絕對是狂吼：「我一步都沒有退欸，啊這樣算我輸喔？」他不需要客觀事實，因為他自己就是真理本理。" 
+      },
+      LLLH: { 
+        name: "章魚哥 (Octupus)", image: "assets/images/octupus.jpg", 
+        motto: "不管你要我做什麼工作，我都不會做的。我這輩子只在乎六點能不能準時下班。我陪你哈啦，你會給我加薪嗎？", 
+        description: "這是已經徹底看破資本主義謊言的極致社畜。他的靈魂早就被工作榨乾，眼神裡除了死灰還是死灰。你跟他談夢想、談團隊合作？他只會冷冷地問：「我陪你哈啦，你會給我加薪嗎？」他的人生最高指導原則，就是準時下班，任何攔住他的人都是殺父仇人。" 
+      },
+      LLLL: { 
+        name: "快俠 (Flash)", image: "assets/images/flash.jpg", 
+        motto: "哈......哈......哈......哈......", 
+        description: "這位老兄的時間流速跟我們這群凡人完全不在同一個次元。當這個世界已經快轉到了 5G 時代，他的靈魂還停留在撥接上網。你講一個笑話，他可能等到明年清明節才會突然笑出來。他不是在擺爛，他是真的已經把「慢」昇華成了一種堅不可摧的物理防禦盾牌。" 
+      }
+    };
+
+    // ==========================================
+    // 4. 系統運作核心
+    // ==========================================
+    const answers = new Array(QUESTIONS.length).fill(null);
+    let currentQuestion = 0;
+    const questionView = document.getElementById("questionView");
+    const resultView = document.getElementById("resultView");
+    const progressText = document.getElementById("progressText");
+    const progressBar = document.getElementById("progressBar");
+
+    const COLOR_LOOKUP = Object.fromEntries(COLORS.map(([key, zh, en, hex]) => [key, { key, zh, en, hex }]));
+
+    function getScore(pointsObj, dimIndex) {
+        let sum = 0;
+        for (let color in pointsObj) {
+            sum += pointsObj[color] * MODEL1_COLOR_MATRIX[color][dimIndex];
+        }
+        return sum;
+    }
+
+    function getMedian(arr) {
+        const sorted = [...arr].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    function calculateBaselines() {
+        const q1_v = QUESTIONS[0].options.map(opt => getScore(opt.points, 0));
+        const q4_s = QUESTIONS[3].options.map(opt => getScore(opt.points, 1));
+        const q5_r = QUESTIONS[4].options.map(opt => getScore(opt.points, 2));
+        const q2_a = COLORS.map(([key]) => getScore({[key]: 8}, 3));
+        const q3_a = COLORS.map(([key]) => getScore({[key]: 8}, 3));
+        const q23_a = [];
+        q2_a.forEach(a2 => q3_a.forEach(a3 => q23_a.push(a2 + a3)));
+
+        return { V: getMedian(q1_v), S: getMedian(q4_s), R: getMedian(q5_r), A: getMedian(q23_a) };
+    }
+    const BASELINES = calculateBaselines();
+
+    function buildColorOptions() {
+      return COLORS.map(([key, zh, en]) => ({
+        label: `${zh} (${en})`, note: "直覺第一眼選到它。",
+        colorKey: key, points: { [key]: 8 }, colors: [key]
+      }));
+    }
+
+    function colorPairIcon(colors) {
+      if (!colors || colors.length === 0) return "";
+      const blocks = colors.slice(0, 4).map((color) => `<span style="background:${COLOR_LOOKUP[color].hex}"></span>`).join("");
+      return `<span class="palette-stack" aria-hidden="true">${blocks}</span>`;
+    }
+
+    function renderQuestion() {
+      const question = QUESTIONS[currentQuestion];
+      const options = question.colorOnly ? buildColorOptions() : question.options;
+      const selected = answers[currentQuestion];
+      const optionClass = question.colorOnly ? "options color-grid" : "options";
+
+      progressText.textContent = `第 ${currentQuestion + 1} / ${QUESTIONS.length} 題`;
+      progressBar.style.width = `${((currentQuestion + 1) / QUESTIONS.length) * 100}%`;
+
+      questionView.innerHTML = `
+        <div class="question-kicker"><span class="pill">Question ${currentQuestion + 1}</span><span>用直覺選，不要跟它耗太久</span></div>
+        <h2>${question.title}</h2>
+        <p class="question-text">${question.text}</p>
+        <div class="${optionClass}" id="options"></div>
+        <div class="actions">
+          <button class="ghost" type="button" id="backBtn">${currentQuestion === 0 ? "重新開始" : "上一題"}</button>
+          <button class="primary" type="button" id="nextBtn" ${selected === null ? "disabled" : ""}>${currentQuestion === QUESTIONS.length - 1 ? "結算大數據人格" : "下一題"}</button>
+        </div>
+      `;
+
+      const optionRoot = document.getElementById("options");
+      options.forEach((option, index) => {
+        const button = document.createElement("button");
+        button.className = "option"; button.type = "button";
+        button.setAttribute("aria-pressed", selected === index ? "true" : "false");
+
+        const icon = option.colorKey 
+          ? `<span class="swatch" style="background:${COLOR_LOOKUP[option.colorKey].hex}"></span>`
+          : colorPairIcon(option.colors) || `<span class="option-number">${String.fromCharCode(65 + index)}</span>`;
+
+        button.innerHTML = `${icon}<span><strong>${option.label}</strong><small>${option.note}</small></span>`;
+        button.addEventListener("click", () => { answers[currentQuestion] = index; renderQuestion(); });
+        optionRoot.appendChild(button);
+      });
+
+      document.getElementById("backBtn").addEventListener("click", () => {
+        if (currentQuestion === 0) answers.fill(null); else currentQuestion -= 1;
+        renderQuestion();
+      });
+      document.getElementById("nextBtn").addEventListener("click", () => {
+        if (answers[currentQuestion] === null) return;
+        if (currentQuestion < QUESTIONS.length - 1) { currentQuestion += 1; renderQuestion(); } 
+        else { renderResult(); }
+      });
+    }
+
+    function renderResult() {
+      // 擷取玩家選項
+      const q1_pts = QUESTIONS[0].options[answers[0]].points;
+      const q2_pts = buildColorOptions()[answers[1]].points;
+      const q3_pts = buildColorOptions()[answers[2]].points;
+      const q4_pts = QUESTIONS[3].options[answers[3]].points;
+      const q5_pts = QUESTIONS[4].options[answers[4]].points;
+
+      // 獨立特徵解耦計算
+      const user_scores = {
+          V: getScore(q1_pts, 0),
+          S: getScore(q4_pts, 1),
+          R: getScore(q5_pts, 2),
+          A: getScore(q2_pts, 3) + getScore(q3_pts, 3)
+      };
+
+      // 判定 H / L
+      const codeArr = ["V", "S", "R", "A"].map(dim => user_scores[dim] >= BASELINES[dim] ? "H" : "L");
+      const finalCode = codeArr.join("");
+      const persona = PERSONAS[finalCode];
+
+      questionView.classList.remove("active");
+      resultView.classList.add("active");
+      progressText.textContent = "數據分析完成";
+      progressBar.style.width = "100%";
+
+      // 生成能量條 HTML
+      const metricsHtml = ["V", "S", "R", "A"].map((dim) => {
+        const percent = user_scores[dim] >= BASELINES[dim] ? Math.min(100, 50 + ((user_scores[dim] - BASELINES[dim]) * 15)) : Math.max(5, 50 - ((BASELINES[dim] - user_scores[dim]) * 15));
+        return `
+          <div class="metric">
+            <strong>${DIMENSION_LABELS[dim]}</strong>
+            <div class="bar" aria-hidden="true"><span style="width:${percent}%"></span></div>
+            <span><b>${user_scores[dim] >= BASELINES[dim] ? "H" : "L"}</b> <span style="color:var(--muted); font-size:12px">(${DIMENSION_SOURCE_LABELS[dim]})</span></span>
+          </div>
+        `;
+      }).join("");
+
+      // 渲染最終畫面 (套用暗色質感的照片相框)
+      resultView.innerHTML = `
+        <div class="result-hero">
+          <div class="question-kicker">
+            <span class="pill">大數據編碼 ${finalCode}</span>
+            <span>V / S / R / A</span>
+          </div>
+          <h2 class="result-title">【${persona.name}】</h2>
+          
+          ${persona.image ? `<div style="margin: 18px 0; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); padding: 12px; text-align: center;"><img src="${persona.image}" style="max-width: 100%; height: 260px; object-fit: contain;"></div>` : ''}
+          
+          <div class="type-flags">
+            ${["V", "S", "R", "A"].map((dim, i) => `<span class="flag">${DIMENSION_LABELS[dim]} ${codeArr[i]}</span>`).join("")}
+          </div>
+          <p class="description">${persona.description}</p>
+          <p class="motto">"${persona.motto}"</p>
+        </div>
+        <div class="metrics">
+            <h3 style="margin:0; font-size:16px; color:#ffffff;">📊 你的情緒大數據剖析</h3>
+            ${metricsHtml}
+        </div>
+        <div class="actions">
+          <button class="ghost" type="button" id="restartBtn">再測一次</button>
+        </div>
+      `;
+
+      document.getElementById("restartBtn").addEventListener("click", () => {
+        answers.fill(null); currentQuestion = 0;
+        resultView.classList.remove("active"); questionView.classList.add("active");
+        renderQuestion();
+      });
+    }
+
+    renderQuestion();
+  </script>
+</body>
+</html>

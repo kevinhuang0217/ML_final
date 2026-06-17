@@ -4,7 +4,7 @@ import os
 from main_pipeline import run_advanced_pipeline 
 
 # ==========================================
-# 1. 網頁基本設定與效能優化 (Caching)
+# 1. 網頁基本設定與Caching
 # ==========================================
 st.set_page_config(page_title="簡報視覺配色模型", page_icon="🎨", layout="wide", initial_sidebar_state="expanded")
 
@@ -29,9 +29,9 @@ st.markdown("##### 基於機器學習，為您的商業提案與專案報告計�
 st.divider()
 
 # ==========================================
-# 2. 專屬大數據對應字典 (與原始資料集 100% 同步)
+# 2. 國家語言對應字典 
 # ==========================================
-# 從 preprocessing_DATA.csv 提取出的專屬國家字典
+# 從 preprocessing_DATA.csv 取出的國家字典
 COUNTRY_MAP = {
     'az': 'Azerbaijan', 'gr': 'Greece', 'no': 'Norway', 'de': 'Germany', 'ch': 'Switzerland', 
     'se': 'Sweden', 'eg': 'Egypt', 'es': 'Spain', 'pl': 'Poland', 'cn': 'China', 
@@ -52,7 +52,7 @@ COUNTRY_MAP = {
     'ug': 'Uganda', 'ie': 'Ireland', 'tr': 'Turkey', 'sk': 'Slovakia', 'id': 'Indonesia'
 }
 
-# 從 preprocessing_DATA.csv 提取出的專屬語言字典
+# 從 preprocessing_DATA.csv 取出的語言字典
 LANG_MAP = {
     'az': 'Azerbaijani', 'gr': 'Greek', 'no': 'Norwegian', 'de': 'German', 
     'fr': 'French', 'se': 'Swedish', 'ar': 'Arabic', 'es': 'Spanish', 
@@ -73,7 +73,7 @@ def format_lang(code):
     return LANG_MAP.get(clean_code, str(code).upper().strip())
 
 # ==========================================
-# 3. 側邊欄 - 受眾輪廓設定
+# 3. 側邊欄 - 受眾設定
 # ==========================================
 with st.sidebar:
     st.header("👤 受眾設定")
@@ -89,10 +89,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("#### 🌍 地緣與文化特徵")
     
-    # 🎯 國家選單優化：自動整合二進位對應檔，並按照「全名 A-Z」優雅排序
+    # 國家選單優化：自動整合二進位對應檔，並按照全名A-Z排序
     if country_mapping is not None:
         model_countries = country_mapping['residencecountry'].dropna().str.lower().str.strip().unique().tolist()
-        # 關鍵行：依據 COUNTRY_MAP 裡面的真實全名進行 A 到 Z 排序
         country_options = sorted(model_countries, key=lambda x: COUNTRY_MAP.get(x, x.upper()))
         default_c = "us" if "us" in country_options else country_options[0]
         country_choice = st.selectbox("🌎 目標市場 (國家)", country_options, index=country_options.index(default_c), format_func=format_country)
@@ -100,10 +99,9 @@ with st.sidebar:
         country_options = sorted(list(COUNTRY_MAP.keys()), key=lambda x: COUNTRY_MAP.get(x, x.upper()))
         country_choice = st.selectbox("🌎 目標市場 (國家)", country_options, format_func=format_country)
         
-    # 🎯 語言選單優化：自動整合二進位對應檔，並按照「全名 A-Z」優雅排序
+    # 語言選單優化：自動整合二進位對應檔，並按照A-Z排序
     if lang_mapping is not None:
         model_langs = lang_mapping['mothertongue'].dropna().str.lower().str.strip().unique().tolist()
-        # 關鍵行：依據 LANG_MAP 裡面的真實全名進行 A 到 Z 排序
         lang_options = sorted(model_langs, key=lambda x: LANG_MAP.get(x, x.upper()))
         default_l = "en" if "en" in lang_options else lang_options[0]
         lang_choice = st.selectbox("🗣️ 溝通母語", lang_options, index=lang_options.index(default_l), format_func=format_lang)
@@ -116,7 +114,7 @@ with st.sidebar:
     user_profile = {"gender": gender_map[gender_choice], "age_group": age_map[age_choice], "fluentenglish": fluent_val, "country_code": country_choice, "lang_code": lang_choice}
 
 # ==========================================
-# 4. 主畫面 - 商業級情緒微調介面
+# 4. 主畫面 - 情緒微調介面
 # ==========================================
 all_colors = ['black', 'blue', 'brown', 'green', 'grey', 'orange', 'pink', 'purple', 'red', 'turquoise', 'white', 'yellow']
 
@@ -224,7 +222,7 @@ user_emotions = {
 st.divider()
 
 # ==========================================
-# 5. 色碼與 XAI 解釋字典
+# 5. 色碼與顏色解釋字典
 # ==========================================
 UI_COLOR_MAP = {
     "black": "#1E293B", "blue": "#3B82F6", "brown": "#92400E", "green": "#10B981", 
@@ -322,7 +320,7 @@ if st.button("✨ 啟動模型計算最佳配色", use_container_width=True, typ
             st.caption("Top 3")
             st.code(hex_c3, language=None)
 
-        # XAI 可解釋性
+        # 可解釋性
         st.write("")
         with st.expander("💡 為什麼 AI 推薦這些顏色？ (點擊查看模型可解釋性)"):
             st.markdown(f"**🥇 Top 1 ({c1.capitalize()}):** {XAI_EXPLANATION.get(c1, '')}")
