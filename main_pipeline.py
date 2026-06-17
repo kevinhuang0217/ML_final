@@ -104,7 +104,7 @@ def run_advanced_pipeline(user_profile, main_color, raw_user_emotions, confidenc
             break
         else:
             for k in current_emotions.keys():
-                current_emotions[k] = current_emotions[k] * 0.9 + 2.5 * 0.1
+                current_emotions[k] = current_emotions[k] * 0.8 + 2.5 * 0.2
             
     # 修正Bug：過濾掉與主色相同的顏色後，取前三名 (Top-3)
     final_recs = [r for r in recommendations if r["colour"] != main_color][:3]
