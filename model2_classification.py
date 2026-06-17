@@ -1,31 +1,19 @@
 import numpy as np
 import pandas as pd
-import os
+import matplotlib.pyplot as plt
 
 #%% 模型前資料整理與資料切分
 # =============================================================================
-# Step 1. 讀取資料 (已修改為相對路徑 + 防呆防護欄)
+# Step 1. 讀取資料
 # =============================================================================
-# 修正與對齊前處理產出的檔名
-DATA_PATH = "DATA_preprocessed.csv"
-COUNTRY_MAP_PATH = "country_binary_mapping.csv"
-LANG_MAP_PATH = "lang_binary_mapping.csv"
+DATA_PATH = 'DATA_preprocessed.csv'
 
-# 檢查檔案是否都乖乖躺在同一個資料夾
-missing_files = [f for f in [DATA_PATH, COUNTRY_MAP_PATH, LANG_MAP_PATH] if not os.path.exists(f)]
+df = pd.read_csv(DATA_PATH) 
+df.columns = df.columns.str.strip() # 把所有欄位名稱前後的空白去掉
+country_mapping = pd.read_csv('country_binary_mapping.csv')
+lang_mapping = pd.read_csv('lang_binary_mapping.csv')
+print(df.shape)
 
-if missing_files:
-    print(f"⚠️ 警告！找不到以下檔案：{missing_files}")
-    print("💡 請確認這些檔案是否與此程式碼放在同一個資料夾下。")
-else:
-    df = pd.read_csv(DATA_PATH) 
-    df.columns = df.columns.str.strip() # 把所有欄位名稱前後的空白去掉
-    
-    country_mapping = pd.read_csv(COUNTRY_MAP_PATH)
-    lang_mapping = pd.read_csv(LANG_MAP_PATH)
-    
-    print("🎉 所有模型二所需資料載入成功！")
-    print(f"資料集形狀 (Shape): {df.shape}")
 # =============================================================================
 # Step 2. 設定輸入特徵與目標
 # =============================================================================
@@ -63,6 +51,7 @@ feature_cols = (
 )
 
 print("Number of features:", len(feature_cols))
+
 # =============================================================================
 # Step 3. 整理模型資料
 # =============================================================================
@@ -77,6 +66,7 @@ print("y shape:", y.shape)
 
 print("\nColour counts:")
 print(df_model[target_col].value_counts().sort_index()) # .value_counts() 會統計每個顏色出現幾次；.sort_index() 則是按照顏色名稱排序。
+
 # =============================================================================
 # 做 7:2:1 stratified split
 # =============================================================================
@@ -126,7 +116,6 @@ print("Test:", X_test.shape, y_test.shape)
 # =============================================================================
 # Step 5. 建立 Gaussian Bayes 訓練函式
 # =============================================================================
-
 def train_gaussian_bayes_params(X_train_input, y_train_input, reg):
     """
     訓練 Gaussian Bayesian Colour Classifier 的參數。
@@ -248,7 +237,6 @@ def train_gaussian_bayes_params(X_train_input, y_train_input, reg):
 # =============================================================================
 # Step 6. 建立 posterior probability 計算函式
 # =============================================================================
-
 def compute_posterior_probability(X_input, model_params):
     """
     輸入一批資料 X_input，
@@ -330,7 +318,6 @@ def compute_posterior_probability(X_input, model_params):
 # =============================================================================
 # Step 7. 用 validation set 選 covariance regularization
 # =============================================================================
-
 # 測試不同的 covariance regularization 大小
 # validation set 會用來選出表現最好的 reg
 reg_candidates = [1e-6, 1e-5, 1e-4, 1e-3]
@@ -409,7 +396,6 @@ for reg in reg_candidates:
 # =============================================================================
 # Step 8. 選出最佳 reg
 # =============================================================================
-
 # 把 validation_results 轉成 DataFrame，方便查看結果
 validation_results_df = pd.DataFrame(validation_results)
 print("\nValidation tuning results:")
@@ -430,7 +416,6 @@ print(f"Best validation Top-3 = {best_row['val_top3']:.4f}")
 # =============================================================================
 # Step 9. 用最佳 reg 訓練 final model
 # =============================================================================
-
 X_train_final = np.vstack([X_train, X_val])
 y_train_final = np.concatenate([y_train, y_val])
 
@@ -449,7 +434,6 @@ print("Shared covariance shape:", final_model["shared_cov"].shape)
 # =============================================================================
 # Step 10. 評估 final model on test set
 # =============================================================================
-
 # 使用 final model 計算 test set 的 posterior probability
 test_prob = compute_posterior_probability(
     X_input=X_test,
@@ -479,11 +463,10 @@ print("===== Final Test Result =====")
 print(f"Top-1 accuracy = {test_top1_acc:.4f}")
 print(f"Top-3 accuracy = {test_top3_acc:.4f}")
 
-#%% 模型補充評估：Reject / Doubt、Margin、Per-colour Recall
+#%% 模型補充評估
 # =============================================================================
 # Step 11. 整理 posterior probability 排序
 # =============================================================================
-
 sorted_prob = np.sort(test_prob, axis=1)[:, ::-1] # sorted_prob 會把每筆資料對 12 個顏色的 posterior probability 由大到小排序
 
 top1_prob = sorted_prob[:, 0] # 取出每一筆資料最高的 posterior probability
@@ -513,7 +496,6 @@ print(f"Median Top-3 probability sum = {np.median(top3_prob_sum):.4f}")
 # 如果 top1_prob >= threshold，模型才接受這筆推薦。
 # 如果 top1_prob < threshold，視為 reject / doubt case。
 # =============================================================================
-
 # 放適合呈現的三個 threshold
 confidence_thresholds = [0.30, 0.40, 0.50]
 
@@ -558,7 +540,6 @@ reject_df = pd.DataFrame(reject_records)
 print("\n===== Reject / Doubt Option Analysis =====")
 print(reject_df.to_string(index=False))
 
-
 # =============================================================================
 # Step 13. Margin / Uncertainty analysis
 # =============================================================================
@@ -572,39 +553,184 @@ print(f"Median Top-1 / Top-2 margin = {np.median(top1_top2_margin):.4f}") # 印�
 print(f"Low-margin ratio, margin < {low_margin_threshold:.2f} = {low_margin_ratio:.4f}")
 print(f"Number of low-margin samples = {np.sum(low_margin_mask)}")
 
+# =============================================================================
+# Step 14. Row-normalized confusion matrix
+# =============================================================================
+# 混淆矩陣：
+# row = true colour
+# column = predicted colour
+#
+# 使用 row normalization，
+# 因此每一列代表「真正屬於該顏色的樣本，被預測成各顏色的比例」。
+# =============================================================================
+
+# 使用模型原本的類別順序
+plot_order = [
+    "brown",
+    "grey",
+    "black",
+    "white",
+    "pink",
+    "red",
+    "yellow",
+    "orange",
+    "blue",
+    "green",
+    "purple",
+    "turquoise",
+]
+
+# 建立 label 到 index 的對應
+label_to_idx = {
+    label: i
+    for i, label in enumerate(plot_order)
+}
+
+n_classes = len(plot_order)
+
+# 建立 confusion matrix counts
+cm_counts = np.zeros(
+    (n_classes, n_classes),
+    dtype=int
+)
+
+for true_label, pred_label in zip(y_test, test_top1_pred):
+
+    true_i = label_to_idx[true_label]
+    pred_j = label_to_idx[pred_label]
+
+    cm_counts[true_i, pred_j] += 1
+
 
 # =============================================================================
-# Strp 14. Per-colour Top-3 recall
-# =============================================================================
-# Per-colour recall：對於真正屬於某個顏色的樣本，模型有多少比例能把該顏色放進 Top-3。
+# Row-normalized confusion matrix (%)
 # =============================================================================
 
-per_colour_records = []
+row_sums = cm_counts.sum(axis=1, keepdims=True)
 
-for c in classes:
+# 避免某個類別在 test set 中沒有樣本時產生除以零錯誤
+cm_percent = np.divide(
+    cm_counts,
+    row_sums,
+    out=np.zeros_like(cm_counts, dtype=float),
+    where=row_sums != 0
+) * 100
 
-    idx = np.where(y_test == c)[0] # 找出 test set 裡面真正屬於顏色 c 的樣本位置
 
-    colour_top1_recall = np.mean(test_top1_pred[idx] == y_test[idx]) # 真正是這個顏色的樣本，有多少比例被 Top-1 正確預測成這個顏色
-    colour_top3_recall = np.mean(test_top3_correct_array[idx])
+# =============================================================================
+# 儲存 confusion matrix CSV
+# =============================================================================
 
-    colour_mean_top1_prob = np.mean(top1_prob[idx])
-    colour_mean_margin = np.mean(top1_top2_margin[idx])
+cm_counts_df = pd.DataFrame(
+    cm_counts,
+    index=plot_order,
+    columns=plot_order
+)
 
-    per_colour_records.append({ # 把這個顏色的結果存成一列
-        "colour": c,
-        "n_test": len(idx),
-        "top1_recall": colour_top1_recall,
-        "top3_recall": colour_top3_recall,
-        "mean_top1_prob": colour_mean_top1_prob,
-        "mean_top1_top2_margin": colour_mean_margin,
-    })
+cm_percent_df = pd.DataFrame(
+    cm_percent,
+    index=plot_order,
+    columns=plot_order
+)
 
-per_colour_df = pd.DataFrame(per_colour_records)
-per_colour_df = per_colour_df.sort_values("top3_recall", ascending=False)
+cm_counts_df.to_csv(
+    "model2_confusion_matrix_counts.csv",
+    encoding="utf-8-sig"
+)
 
-print("\n===== Per-colour Top-1 / Top-3 Recall =====")
-print(per_colour_df.to_string(index=False))
+cm_percent_df.to_csv(
+    "model2_confusion_matrix_row_percent.csv",
+    encoding="utf-8-sig"
+)
+
+
+# =============================================================================
+# Plot confusion matrix
+# =============================================================================
+
+fig, ax = plt.subplots(figsize=(11, 9))
+
+max_value = np.max(cm_percent)
+
+im = ax.imshow(
+    cm_percent,
+    cmap="Blues",
+    vmin=0,
+    vmax=max_value
+)
+
+# 座標軸設定
+ax.set_xticks(np.arange(n_classes))
+ax.set_yticks(np.arange(n_classes))
+
+ax.set_xticklabels(
+    plot_order,
+    rotation=45,
+    ha="right",
+    fontsize=11
+)
+
+ax.set_yticklabels(
+    plot_order,
+    fontsize=11
+)
+
+ax.set_xlabel(
+    "Predicted Colour",
+    fontsize=14
+)
+
+ax.set_ylabel(
+    "True Colour",
+    fontsize=14
+)
+
+ax.set_title(
+    "Row-normalized Confusion Matrix of Model 2 (Top-1 Prediction)",
+    fontsize=16,
+    fontweight="bold"
+)
+
+# Colorbar
+cbar = plt.colorbar(im, ax=ax)
+
+cbar.set_label(
+    "Percentage within true colour (%)",
+    fontsize=12
+)
+
+# 標註數值：
+# 顯示對角線，以及比例大於等於 5% 的非對角線項目
+for i in range(n_classes):
+
+    for j in range(n_classes):
+
+        value = cm_percent[i, j]
+
+        if (i == j) or (value >= 5):
+
+            text_color = (
+                "white"
+                if max_value > 0 and value > max_value * 0.55
+                else "black"
+            )
+
+            ax.text(
+                j,
+                i,
+                f"{value:.1f}",
+                ha="center",
+                va="center",
+                color=text_color,
+                fontsize=9
+            )
+
+plt.tight_layout()
+plt.show()
+
+print("\nSaved confusion matrix files:")
+print("model2_confusion_matrix_counts.csv")
+print("model2_confusion_matrix_row_percent.csv")
 
 
 # =============================================================================
@@ -617,15 +743,8 @@ reject_df.to_csv(
     encoding="utf-8-sig"
 )
 
-per_colour_df.to_csv(
-    "model2_per_colour_recall.csv",
-    index=False,
-    encoding="utf-8-sig"
-)
-
-print("\nSaved additional evaluation files:")
+print("\nSaved additional evaluation file:")
 print("model2_reject_doubt_analysis.csv")
-print("model2_per_colour_recall.csv")
 
 #%% 給整合層呼叫的 function
 # =============================================================================
@@ -776,3 +895,4 @@ for rec in recommendations:
         f"{rec['rank']}. {rec['colour']} "
         f"posterior probability = {rec['posterior_probability']:.4f}"
     )
+    
